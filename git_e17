@@ -746,7 +746,8 @@ fi
 
 debug 1 "Type of build system $build_type"
 
-#use the power of ;;& - muahahha
+#use the power of ;;& - muahahh
+#UGLY HACK!!
 case "$build_type" in
     autogen)
         run_cmd "$pkg" "$src_path" "" "autogen" "./autogen.sh"
@@ -774,7 +775,7 @@ case "$build_type" in
         ;;
     *)
         msg echo "no build system found"
-        msg_ani  "no build system"
+        msg_ani  " (no build system) - "
         conf[current_failed]=true
         return
 esac
@@ -784,8 +785,23 @@ esac
 run_cmd(){
 debug 1 "${FUNCNAME[0]}() $@"
 #
+# In:
+# $1 - pkg - package name
+# $2 - src - source path
+# $3 - obj - path in which configure will be run
+# $4 - title - titel of the displayed action while the command is running
+# $@ - the command to be run
 #
+# Out:
+# compiles the code and sets conf[current_failed] in case of failure
 #
+# FUNCTION NEEDS TO BE REWRITTEN - it is UGLY and STUIP
+# a better way than writing $@ to call the command would be nice
+#
+# the 3 different calls might be handled in another way
+# maybe it is better to write a seperate run_animated function
+#
+
 pkg="$1"
 src="$2"
 obj="$3"
@@ -800,8 +816,10 @@ else
     cd "$src" || on_error "unable to cd into $src"
 fi
 
+## check if makefile is available
 if [[ ${tilte%% *} == make ]]; then
     if ! [[ -e Makefile || -e makefile ]]; then
+    #TODO - elif check source dir and cd into it
         conf[current_failed]=true
         ${conf[animate]} && return
         msg "Failed"
@@ -816,17 +834,24 @@ debug 1 "running in path: $(pwd)"
 if ! ${conf[current_failed]}; then
     #if animation mode is used
     if ${conf[animate]}; then
+        #call
         nice -n "${conf[nice]}" $@ &>>"$log_file" &
+        #get pid
         pid="$!"
+        #start animation
         ( rotate "$pid" "${title}: " "$log_file" ) &
+        #wait for command to finish and check exit status
         if ! wait $pid; then
             conf[current_failed]=true
         else
+            #check log for errors
             if tail -n 20 "$log_file" | grep -s -i error ; then
                 conf[current_failed]=true
             fi
         fi
+        #wait for annimation - is that necessary?
         wait
+        # success
         #return here and now do not go any further - HACK!!!
         return
     #if a more verbose mode is used
@@ -865,9 +890,6 @@ if ! ${conf[current_failed]}; then
     nerr "Failed to build $pkg"
 fi #end of prechecks of
 }
-
-
-
 
 
 ### distcheck functions

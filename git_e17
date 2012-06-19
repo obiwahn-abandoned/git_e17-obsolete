@@ -1,7 +1,10 @@
 #!/bin/bash
 # vim:expandtab:ts=4:sw=4:fdm=marker:fmr={,}
+#
+# To Inspect the code use vim, modelines and folds!!!!
 
 ### global variable definitions
+#global vars {
 efl_basic="eina eet evas ecore efreet eio eeze e_dbus embryo edje azy ethumb elementary"
 efl_extra="imlib2 emotion enlil libast python-evas python-ecore python-e_dbus python-edje python-emotion python-elementary shellementary"
 bin_basic="exchange e"
@@ -20,19 +23,18 @@ declare -a packages_want
 declare -A packages_result
 declare -a packages_failed_since_update
 
-
 conf[dev]=false
 conf[verbose]=false
 conf[debug]=false
 conf[debug_level]=10
 conf[animate]=false
 
-
 bold=$(tput bold)
 boldoff=$(tput sgr0)
 
 conf[git_repo]=http://git.enlightenment.fr/cgit.cgi/svn.git/
 
+#end global vars }
 ### function definitions
 main(){
 debug 1 "${FUNCNAME[0]}()"
@@ -62,7 +64,7 @@ build
 }
 
 ### helper
-### helper debuging
+## helper debuging
 debug(){
 #
 # This function displays debug information
@@ -100,8 +102,7 @@ ${conf[debug]} && set -x
 debug+x(){
 ${conf[debug]} && set +x
 }
-
-### helper output
+## helper output
 verbose(){
 ${conf[verbose]} && echo -e "$@"
 }
@@ -118,27 +119,6 @@ ${conf[animate]} || echo "$@"
 
 msg_ani(){
 ${conf[animate]} && echo "$@"
-}
-
-on_error(){
-debug 1 "${FUNCNAME[0]}() $@"
-#
-#
-#
-echo -e "$@"
-case ${conf[on_error]} in
-    exit)
-        exit 1
-    ;;
-    ask)
-        local rv="$(ask_to_count)"
-        [[ "$rv" == "no" ]] && exit 1
-        ;;&
-    *) #skip
-        return
-        conf[current_skip]=true
-    ;;
-esac
 }
 
 ask_to_count(){
@@ -160,7 +140,30 @@ ask_to_count(){
     done
 
 }
+## helper error
+on_error(){
+debug 1 "${FUNCNAME[0]}() $@"
+#
+#
+#
+echo -e "$@"
+case ${conf[on_error]} in
+    exit)
+        exit 1
+    ;;
+    ask)
+        local rv="$(ask_to_count)"
+        [[ "$rv" == "no" ]] && exit 1
+        ;;&
+    *) #skip
+        return
+        conf[current_skip]=true
+    ;;
+esac
+}
 
+#### main functions
+### display help
 help(){
 debug 1 "${FUNCNAME[0]}()"
 #
@@ -205,10 +208,7 @@ options:
 simple script for building e17 from git
 EOF
 }
-
-
-
-## main functions
+### commandline parsing
 get_opts(){
 debug 1 "${FUNCNAME[0]}()"
 #
@@ -291,10 +291,7 @@ else
 fi
 debug_cfg
 }
-
-
-
-
+### get build dir form gloabl conf and create conf if not exisitent
 get_build_dir_from_global_cfg(){
 debug 1 "${FUNCNAME[0]}()"
 #
@@ -345,9 +342,7 @@ debug 2 "build dir set to ${conf[build_dir]}"
 debug 2 "config file set to ${conf[config_file]}"
 debug_cfg
 }
-
-
-
+### read default cfg or the one given on commandline
 read_local_cfg(){
 debug 1 "${FUNCNAME[0]}()"
 #
@@ -410,9 +405,7 @@ else
 fi
 debug_cfg
 }
-
-
-
+### read rest of global_cfg - only overwrite unset options
 read_global_cfg(){
 #
 # add global configuration
@@ -425,9 +418,7 @@ debug 1 "${FUNCNAME[0]}()"
     done <<< "$config"
 debug_cfg
 }
-
-
-
+### assign default_values
 assign_defaults(){
 conf[log_path]="${conf[log_path]:-"${conf[build_dir]}/log"}"
 conf[packagelist]="${conf[packagelist]:-"full"}"
@@ -458,9 +449,7 @@ case "${conf[packagelist]}" in
         ;;
 esac
 }
-
-
-
+### check for missing options and unwriteable paths
 check_cfg(){
 debug 1 "${FUNCNAME[0]}()"
 #
@@ -505,7 +494,7 @@ for key in ${!conf[@]}; do
 done
 debug_cfg
 }
-
+### functions that scan source code and seltect packages to bue build
 get_src(){
 debug 1 "${FUNCNAME[0]}()"
 local src_path="${conf[src_path]}"
@@ -544,7 +533,7 @@ if [[ "${conf[update]}" == "true" ]]; then
     fi
 fi
 }
-
+### set up the enc
 set_env(){
 debug 1 "${FUNCNAME[0]}()"
 local install_path="${conf[install_path]}"
@@ -591,7 +580,26 @@ done
 $failed && echo "failed" && exit 1
 msg_ani " OK"
 }
-
+### build - calls: find_local_path, compile
+build(){
+debug 1 "${FUNCNAME[0]}() $@"
+#
+# This functions should find the
+#
+for pkg in "${packages_want[@]}"; do
+    msg "- trying to build $pkg ..."
+    conf[current_package_path]=""
+    find_local_path "$pkg"
+    cpath=${conf[current_package_path]}
+    if [[ -z "$cpath" ]]; then
+        echo "source path of of package $pkg not found - skipping"
+        continue
+    else
+        compile "$pkg" "$cpath"
+    fi
+done
+}
+### find the sourcecode of a pacakge
 find_local_path (){
 debug 1 "${FUNCNAME[0]}() $@"
 #
@@ -637,46 +645,7 @@ if [[ -z "${conf[current_package_path]}" ]] ; then
 fi
 msg "OK"
 }
-
-run_cmd(){
-debug 1 "${FUNCNAME[0]}() $@"
-#
-#
-#
-pkg="$1"
-src="$2"
-obj="$3"
-title="$4"
-shift 4
-
-if [[ -n "$obj" ]]; then
-    #clean it whatever it means
-    mkdir -p "$obj" || on_error "unable to create $obj"
-    cd "$obj" || on_error "unable to cd into $obj"
-else
-    cd "$src" || on_error "unable to cd into $src"
-fi
-
-log_file="${conf[log_path]}/$pkg.log"
-
-# animate
-${conf[animate]} && echo -n "$title: "
-
-debug 1 "running in path: $(pwd)"
-if  ${conf[verbose]} || ${conf[debug]} || ${conf[dev]} ; then
-    verbose "running: nice -n ${conf[nice]} $@ 2>&1 | tee $log_file"
-    nice -n "${conf[nice]}" $@ 2>&1 | tee -a "$log_file" &
-else
-    verbose "running: nice -n ${conf[nice]} $@ &>>$log_file"
-    nice -n "${conf[nice]}" "$@" &>>"$log_file" &
-    pid="$!"
-    ${conf[animate]} && rotate "$pid" " $tile - " "$log_file"
-fi
-
-
-}
-
-
+### sets up parameters and calls run_cmd
 compile(){
 debug 1 "${FUNCNAME[0]}() $@"
 local pkg="$1"
@@ -751,27 +720,47 @@ else
     ${conf[animate]} && echo " FAILED"
 fi
 }
-
-build(){
+### runs the commands that are actually used to build the code
+run_cmd(){
 debug 1 "${FUNCNAME[0]}() $@"
 #
-# This functions should find the
 #
-for pkg in "${packages_want[@]}"; do
-    msg "- trying to build $pkg ..."
-    conf[current_package_path]=""
-    find_local_path "$pkg"
-    cpath=${conf[current_package_path]}
-    if [[ -z "$cpath" ]]; then
-        echo "source path of of package $pkg not found - skipping"
-        continue
-    else
-        compile "$pkg" "$cpath"
-    fi
-done
+#
+pkg="$1"
+src="$2"
+obj="$3"
+title="$4"
+shift 4
+
+if [[ -n "$obj" ]]; then
+    #clean it whatever it means
+    mkdir -p "$obj" || on_error "unable to create $obj"
+    cd "$obj" || on_error "unable to cd into $obj"
+else
+    cd "$src" || on_error "unable to cd into $src"
+fi
+
+log_file="${conf[log_path]}/$pkg.log"
+
+# animate
+${conf[animate]} && echo -n "$title: "
+
+debug 1 "running in path: $(pwd)"
+if  ${conf[verbose]} || ${conf[debug]} || ${conf[dev]} ; then
+    verbose "running: nice -n ${conf[nice]} $@ 2>&1 | tee $log_file"
+    nice -n "${conf[nice]}" $@ 2>&1 | tee -a "$log_file" &
+else
+    verbose "running: nice -n ${conf[nice]} $@ &>>$log_file"
+    nice -n "${conf[nice]}" "$@" &>>"$log_file" &
+    pid="$!"
+    ${conf[animate]} && rotate "$pid" " $tile - " "$log_file"
+fi
+
+
 }
 
-## distcheck functions
+
+### distcheck functions
 distcheck(){
 #echo -e "${bold}checking distribution ...${boldoff}"
 debug 1 "${FUNCNAME[0]}()"
@@ -785,7 +774,7 @@ case $distribution in
 esac
 exit 0
 }
-
+##  debian specific stuff
 debian(){
 debug 1 "${FUNCNAME[0]}()"
 #dpkg -l check packages
@@ -794,6 +783,7 @@ debug 1 "${FUNCNAME[0]}()"
 
 ### fancy output functions
 ### taken from easy e17.sh - the code ist mostly unreviewed:(
+## TODO - rewrite -- all of them :)
 del_lines ()
 {
 cnt=0
@@ -870,7 +860,6 @@ else
     del_lines 5
 fi
 }
-
 function write_appname ()
 {
 	name="$1"
@@ -895,9 +884,7 @@ function write_appname ()
 	echo -n " "
 }
 
-
 ### programm starts here
-
 # well it can be done as root
 distcheck "$@"
 # make sure main programm ist not run as root as it cause serious damage

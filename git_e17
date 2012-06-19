@@ -66,6 +66,7 @@ assign_defaults
 check_cfg
 msg_ani "$(write_bold -n " OK")"
 
+##
 write_bold -n "getting source ..."
 msg ""
 get_src
@@ -108,6 +109,14 @@ done
 echo
 }
 
+print_array(){
+array="$1"
+shift
+for item in "${array[@]}"; do
+    echo "$@" "$item"
+done
+}
+
 debug-x(){
 ${conf[debug]} && set -x
 }
@@ -134,7 +143,7 @@ msg_ani(){
 ${conf[animate]} && echo "$@"
 }
 
-ask_to_count(){
+ask_to_con(){
     while true; do
         read -p "The Programm encountered an error - do you want to continue? (y/n) " yn
         case "$yn" in
@@ -176,7 +185,7 @@ case ${conf[on_error]} in
         exit 1
         ;;
     ask)
-        local rv="$(ask_to_count)"
+        local rv="$(ask_to_con)"
         [[ "$rv" == "no" ]] && exit 1
         ;;&
     *) #skip
@@ -342,6 +351,12 @@ if [[ "$1" == @(build|update|cleanbuild|cleanupdate|fromscratch|list) ]]; then
 else
     ferr -e "No vaild action given${e}Use --help option for help"
 fi
+
+if [[ "$1" == only ]]; then
+    shift
+    packages_want=($@)
+fi
+
 debug_cfg
 }
 ### get build dir form gloabl conf and create conf if not exisitent
@@ -486,21 +501,15 @@ conf[nice]="${conf[nice]:-"19"}"
 #conf[on_error]=""    #
 #conf[nice]=""        #
 
-## tanslate package_list
-case "${conf[packagelist]}" in
-    full)
-        packages_want=($packages_full)
-        ;;
-    half)
-        packages_want=($packages_half)
-        ;;
-    basic)
-        packages_want=($packages_basic)
-        ;;
-    *)
-        ferr "No valid package list packagelist=full|half|basic"
-        ;;
-esac
+if [[ ! $packages_want ]]; then
+    case "${conf[packagelist]}" in
+        full)  packages_want=($packages_full)  ;;
+        half)  packages_want=($packages_half)  ;;
+        basic) packages_want=($packages_basic) ;;
+        *)     ferr "No valid package list packagelist=full|half|basic" ;;
+    esac
+fi
+
 }
 ### check for missing options and unwriteable paths
 check_cfg(){
@@ -509,16 +518,18 @@ debug 1 "${FUNCNAME[0]}()"
 # check configuration
 #
 
-local paths="install_path build_dir log_path src_path object_path log_path"
+## FIXME ##
+conf[deto]="$HOME/.e/e/themes" ## FIX-FOR-A-THEME
+local paths="deto install_path build_dir log_path src_path object_path log_path"
 local output="debug debug_level dev verbose animate"
 local conf_items="$paths $output action config_file packagelist nice on_error"
-
 
 for item in $conf_items; do
     if [[ -z "${conf["$item"]}" ]]; then
         ferr "value for $item is not set - please edit your config file"
     fi
 done
+
 # check if directories are writeable
 for path in $paths; do
     if [[ ! -d "${conf[$path]}" ]]; then
@@ -529,17 +540,12 @@ for path in $paths; do
     fi
 done
 
+#translate strings to bool
 for key in ${!conf[@]}; do
     case ${conf[key]} in
-        true|yes)
-            conf[key]=true
-            ;;
-        false|no)
-            conf[key]=false
-            ;;
-        *)
-            continue
-        ;;
+        true|yes) conf[key]=true ;;
+        false|no) conf[key]=false ;;
+        *) continue ;;
     esac
 done
 debug_cfg
@@ -640,6 +646,7 @@ for pkg in "${packages_want[@]}"; do
     msg "- trying to build $pkg ..."
 
     #initialize vars
+    debug 2 "init vars"
     conf[current_failed]=false
     conf[current_package_path]=""
 
@@ -651,8 +658,11 @@ for pkg in "${packages_want[@]}"; do
         msg_ani "SKIP"
         continue
     else
+        #for animation
+        ${conf[animate]} && write_appname "$pkg"
         #compile it!
         compile "$pkg" "$cpath"
+        ${conf[current_failed]} && msg_ani "FAILED" || msg_ani "OK"
     fi
 done
 }
@@ -736,61 +746,39 @@ fi
 
 debug 1 "Type of build system $build_type"
 
-#for animation
-${conf[animate]} && write_appname "$pkg"
 #use the power of ;;& - muahahha
 case "$build_type" in
     autogen)
         run_cmd "$pkg" "$src_path" "" "autogen" "./autogen.sh"
-        ${conf[current_failed]} && break
         ;;&
     bootstrap)
         run_cmd "$pkg" "$src_path" "" "boostrap" "./bootstrap"
-        ${conf[current_failed]} && break
         ;;&
     perl)
         run_cmd "$pkg" "$src_path" "$obj_path" "perlmake" "perl $src_path/Makefile.PL prefix=$install_path"
-        ${conf[current_failed]} && break
         ;;&
     autogen|bootstrap) #configure
-		run_cmd "$pkg" "$src_path" "$obj_path" "configure" "$src_path/configure --prefix=$install_path $pgk_conf_args"
-        ${conf[current_failed]} && break
+        ${conf[current_failed]} || run_cmd "$pkg" "$src_path" "$obj_path" "configure" "$src_path/configure --prefix=$install_path $pgk_conf_args"
         ;;&
     autogen|bootstrap|perl) # make && make install
-		run_cmd "$pkg" "$src_path" "$obj_path" "make" "make -j ${conf[threads]}"
-        ${conf[current_failed]} && break
-
-		run_cmd "$pkg" "$src_path" "$obj_path" "install" "make install"
-        ${conf[current_failed]} && break
+		${conf[current_failed]} || run_cmd "$pkg" "$src_path" "$obj_path" "make" "make -j ${conf[threads]}"
+		${conf[current_failed]} || run_cmd "$pkg" "$src_path" "$obj_path" "install" "make install"
         ;;
     make) # make && make install
 		run_cmd "$pkg" "$src_path" "" "make" "$make_extra make -j ${conf[threads]}"
-        ${conf[current_failed]} && break
-
-		run_cmd "$pkg" "$src_path" "" "install" "make install"
-        ${conf[current_failed]} && break
+		${conf[current_failed]} || run_cmd "$pkg" "$src_path" "" "install" "make install"
         ;;
     python)
 		run_cmd "$pkg" "$src_path" "" "setup.py-build" "python setup.py build build_ext --include-dirs=$PYTHONINCLUDE $pkg_conf_args"
-        ${conf[current_failed]} && break
-		run_cmd "$pkg" "$src_path" "" "setip-py-install" "python setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
-        ${conf[current_failed]} && break
-        echo "bla"
+		${conf[current_failed]} || run_cmd "$pkg" "$src_path" "" "setip-py-install" "python setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
         ;;
     *)
         msg echo "no build system found"
         msg_ani  "no build system"
         conf[current_failed]=true
         return
-
-
 esac
 
-if ! ${conf[current_failed]}; then
-    msg_ani "OK"
-else
-    msg_ani "FAILED"
-fi
 }
 ### runs the commands that are actually used to build the code
 run_cmd(){
@@ -812,44 +800,74 @@ else
     cd "$src" || on_error "unable to cd into $src"
 fi
 
+if [[ ${tilte%% *} == make ]]; then
+    if ! [[ -e Makefile || -e makefile ]]; then
+        conf[current_failed]=true
+        ${conf[animate]} && return
+        msg "Failed"
+        nerr "No makefile - failed to build $pkg"
+    fi
+fi
+
 log_file="${conf[log_path]}/$pkg.log"
 debug 1 "running in path: $(pwd)"
 
-if ${conf[animate]}; then
-    nice -n "${conf[nice]}" $@ &>>"$log_file" &
-    pid="$!"
-    ( rotate "$pid" "${title}: " "$log_file" ) &
-    if wait $pid; then
+#run only if prechecks did not fail
+if ! ${conf[current_failed]}; then
+    #if animation mode is used
+    if ${conf[animate]}; then
+        nice -n "${conf[nice]}" $@ &>>"$log_file" &
+        pid="$!"
+        ( rotate "$pid" "${title}: " "$log_file" ) &
+        if ! wait $pid; then
+            conf[current_failed]=true
+        else
+            if tail -n 20 "$log_file" | grep -s -i error ; then
+                conf[current_failed]=true
+            fi
+        fi
         wait
+        #return here and now do not go any further - HACK!!!
+        return
+    #if a more verbose mode is used
+    elif ${conf[verbose]} || ${conf[debug]} || ${conf[dev]} ; then
+        msg -n "  - $title ... "
+        verbose "running: nice -n ${conf[nice]} $@ 2>&1 | tee $log_file"
+        if ! nice -n "${conf[nice]}" $@ 2>&1 | tee -a "$log_file"; then
+            conf[current_failed]=true
+        else
+            if tail -n 20 "$log_file" | grep -s -i error ; then
+                conf[current_failed]=true
+            else
+                msg "OK"
+                return
+            fi
+        fi
+    #if normal mode is used
     else
-        conf[current_failed]=true
+        msg -n "  - $title ... "
+        verbose "running: nice -n ${conf[nice]} $@ &>$log_file"
+        if ! nice -n "${conf[nice]}" $@ &>"$log_file"; then
+                conf[current_failed]=true
+        else
+            if tail -n 20 "$log_file" | grep -s -i error ; then
+                conf[current_failed]=true
+            else
+                msg "OK"
+                return
+            fi
+        fi
     fi
-elif ${conf[verbose]} || ${conf[debug]} || ${conf[dev]} ; then
-    msg -n "  - $title ... "
-    verbose "running: nice -n ${conf[nice]} $@ 2>&1 | tee $log_file"
-    if nice -n "${conf[nice]}" $@ 2>&1 | tee -a "$log_file"; then
-        msg "OK"
-    else
-        msg "failed"
-        echo
-        tail -n 30 "$log_file"
-        echo
-        nerr "Failed to build $pkg"
-    fi
-else
-    msg -n "  - $title ... "
-    verbose "running: nice -n ${conf[nice]} $@ &>$log_file"
-    if nice -n "${conf[nice]}" $@ &>"$log_file"; then
-        msg "OK"
-    else
-        msg "failed"
-        echo
-        tail "$log_file"
-        echo
-        nerr "Failed to build $pkg"
-    fi
-fi
+    msg "FAILED"
+    echo
+    tail -n 30 "$log_file"
+    echo
+    nerr "Failed to build $pkg"
+fi #end of prechecks of
 }
+
+
+
 
 
 ### distcheck functions

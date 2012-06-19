@@ -1,0 +1,908 @@
+#!/bin/bash
+# vim:expandtab:ts=4:sw=4:fdm=marker:fmr={,}
+
+### global variable definitions
+efl_basic="eina eet evas ecore efreet eio eeze e_dbus embryo edje azy ethumb elementary"
+efl_extra="imlib2 emotion enlil libast python-evas python-ecore python-e_dbus python-edje python-emotion python-elementary shellementary"
+bin_basic="exchange e"
+bin_extra="e_cho e-type e_phys eblock econcentration editje eenvader.fractal elsa emote empower enjoy enki ephoto eskiss Eterm expedite exquisite eyelight rage terminology"
+e_modules_efl="libeweather"
+e_modules_bin="emprint exalt"
+e_modules_extra="alarm calendar comp-scale cpu deskshow diskio drawer eektool elfe empris engage eooorg everything-aspell everything-mpris everything-pidgin everything-places everything-shotgun everything-skeleton everything-tracker everything-wallpaper everything-websearch eweather exalt-client exebuf execwatch flame forecasts iiirk itask mail mem moon mpdule net news penguins photo places quickaccess rain screenshot skel slideshow snow taskbar tclock uptime weather winlist-ng winselector wlan"
+e_themes="darkness detourious efenniht"
+
+packages_basic="$efl_basic $bin_basic $e_themes"
+packages_half="$efl_basic $bin_basic $e_themes $e_modules_efl $e_modules_bin $e_modules_extra"
+packages_full="$efl_basic $bin_basic $e_themes $e_modules_efl $e_modules_bin $e_modules_extra $efl_extra $bin_extra"
+
+declare -A conf
+declare -a packages_want
+declare -A packages_result
+declare -a packages_failed_since_update
+
+
+conf[dev]=false
+conf[verbose]=false
+conf[debug]=false
+conf[debug_level]=10
+conf[animate]=false
+
+
+bold=$(tput bold)
+boldoff=$(tput sgr0)
+
+conf[git_repo]=http://git.enlightenment.fr/cgit.cgi/svn.git/
+
+### function definitions
+main(){
+debug 1 "${FUNCNAME[0]}()"
+
+write_bold -n "reading command line options ..."
+get_opts "$@"
+msg ""
+msg_ani "$(write_bold -n " OK")"
+
+write_bold -n "reading configuration file ..."
+msg ""
+get_build_dir_from_global_cfg
+read_local_cfg
+read_global_cfg
+assign_defaults
+check_cfg
+msg_ani "$(write_bold -n " OK")"
+
+write_bold -n "getting source ..."
+msg ""
+get_src
+msg_ani "$(write_bold -n " OK")"
+
+write_bold "starting to build ..."
+set_env
+build
+}
+
+### helper
+### helper debuging
+debug(){
+#
+# This function displays debug information
+# when the debug level set via commandline
+# is greater or equal the level passed to
+# the function
+#
+# In:
+# $1 - level
+# $2 - message
+#
+${conf[debug]} || return
+level="$1"; msg="$2"
+if (( level <= ${conf[debug_level]} )); then
+    while read -r line; do
+        echo "debug $level: $line" 1>&2
+    done <<< "$msg"
+fi
+}
+
+debug_cfg(){
+${conf[debug]} || return
+echo
+debug 4 "current configuration:"
+for item in ${!conf[@]}; do
+    debug 4 "$item=${conf["$item"]}"
+done
+echo
+}
+
+debug-x(){
+${conf[debug]} && set -x
+}
+
+debug+x(){
+${conf[debug]} && set +x
+}
+
+### helper output
+verbose(){
+${conf[verbose]} && echo -e "$@"
+}
+
+write_bold(){
+tput bold
+echo "$@"
+tput sgr0
+}
+
+msg(){
+${conf[animate]} || echo "$@"
+}
+
+msg_ani(){
+${conf[animate]} && echo "$@"
+}
+
+on_error(){
+debug 1 "${FUNCNAME[0]}() $@"
+#
+#
+#
+echo -e "$@"
+case ${conf[on_error]} in
+    exit)
+        exit 1
+    ;;
+    ask)
+        local rv="$(ask_to_count)"
+        [[ "$rv" == "no" ]] && exit 1
+        ;;&
+    *) #skip
+        return
+        conf[current_skip]=true
+    ;;
+esac
+}
+
+ask_to_count(){
+    while true; do
+        read -p "The Programm encountered an error - do you want to continue? (y/n) " yn
+        case "$yn" in
+            [Yy]*)
+                echo "yes"
+                break
+                ;;
+            [Nn]*)
+                echo "no";
+                break
+                ;;
+            *)
+                echo "Please answer with yes or no." 1>&2
+                ;;
+        esac
+    done
+
+}
+
+help(){
+debug 1 "${FUNCNAME[0]}()"
+#
+# This functions displays the help file
+#
+cat << EOF
+git-e17
+
+git-e17 [options] action [action parameters]
+
+actions:
+    build
+        build the whole e17
+    update
+        build only packages that have changed
+    cleanbuild
+        remove alle obj files ..
+    fromscratch
+        delete e17 installation and build e17 from scratch
+        ATTENENTION: this will rm -fr $install_path
+                     do not do is if you installed to /usr/local
+    only
+
+options:
+    --build-dir
+        workdir for this script. It will contain the source, config and log
+        files and dirs in which e17 is build. The default build_dir sould
+        be set in ~/.git_e17
+    -c | --conf <conf>
+        config file - especially useful if you want multiple installs
+        ONLY CONF NAME - NO FULL PATHS!!!
+    -b | --branch <branch>
+        branch, tag or commit to use
+    -u | --update
+        pull changes into branch - (git pull)
+    -r | --remote <remote> <branch>
+        select remote branch to pull (git pull remote branch)
+    -v | --verbose
+    -d | --debug
+        enable debugging mode
+
+simple script for building e17 from git
+EOF
+}
+
+
+
+## main functions
+get_opts(){
+debug 1 "${FUNCNAME[0]}()"
+#
+# This function reads the command line arguments
+#
+# In:
+# $@ - ARGV
+#
+# Out:
+# sets: conf, branch, debug, verbose or calls help
+#
+# TODO - idiot proof checking of arguments
+#
+while :
+do
+    case $1 in
+        --build-path)
+            conf[build_path]="$2"
+            debug 1 "build path: ${conf[build_path]}"
+            ;;
+        -c|--conf)
+            conf[confg_file]="$2"
+            debug 1 "config: ${conf[confif_file]}"
+            shift 2
+            ;;
+        -b|--branch)
+            conf[branch]="$2"
+            debug 1 "branch: ${conf[branch]}"
+            shift 2
+            ;;
+        -r|--remote)
+            conf[remote]="$2 $3"
+            debug 1 "remote: ${conf[remote]}"
+            shift 3
+            ;;
+        -u|--update)
+            conf[update]=true
+            shift
+            ;;
+        -a|--animate)
+            conf[animate]=true
+            conf[debug]=false
+            conf[verbose]=false
+            shift
+            ;;
+        -d|--debug)
+            conf[debug]=true
+            conf[animate]=false
+            conf[verbose]=true
+            conf[debug_level]=4
+            debug 1 "debugging mode enabled"
+            shift
+            ;;
+        -v|--verbose)
+            conf[verbose]=true
+            conf[animate]=false
+            debug 1 "verbose mode enabled"
+            shift
+            ;;
+        -h|--help)
+            help
+            exit 0
+            ;;
+        *) #no more options beakb
+            break
+            ;;
+    esac
+done
+
+#parse action parameter
+debug 1 "action: $1"
+if [[ "$1" == @(build|update|cleanbuild|fromscratch|only) ]]; then
+    conf[action]="$1"
+    verbose "action is ${conf[action]}"
+    shift
+else
+    echo -e "Error: no vaild action given"
+    echo -e "       use --help for usage info"
+    exit 1
+fi
+debug_cfg
+}
+
+
+
+
+get_build_dir_from_global_cfg(){
+debug 1 "${FUNCNAME[0]}()"
+#
+# Read parts of the gobal config
+#   This function tries to read the gloabl configuration file
+#   or creates it. If the file existes two important config
+#   items are read when they are not set by commandline
+#
+# Out:
+#   sets: conf[build_dir], conf[config_file]
+debug 1 "build dir: $1"
+if [[ ! -f $HOME/.git_e17 ]]; then
+    cat > "$HOME/.git_e17" << EOF
+# git_e17 - global configuration file
+#
+# INFO:
+# - local configurations and commandline options override this file
+# - lines starting with # are ignored
+# - make sure your user has write access to all choosen paths
+# - you are able to set the path outside the build dir
+
+# item=val - NO SPACES - NO QUOTES
+
+# default build_dir
+build_dir=${conf[build_dir]%/}
+# default config file
+config_file=default.conf
+EOF
+    if [[ ! ${conf[build_dir]} ]]; then
+        echo -e "\nPlease edit your fresh created ~/.git_e17\nand add the path to the default build dir."
+    fi
+fi
+
+while IFS='=' read -r item value; do
+    if [[ "$item" == @(build_dir|config_file) ]]; then
+        conf["$item"]=${conf["$item"]:-"$value"}
+        debug 3 "conf[$item]=$value"
+    fi
+done <<< "$(grep -v ^# "$HOME/.git_e17" | grep -v ^$ )"
+
+debug 2 "The build dir must be set by now!! build_dir=${conf[build_dir]}"
+[[ ! ${conf[build_dir]} ]] && \
+    echo -e "build dir not set:( - please set it via commandline or ~/.git_e17" && \
+    exit 1
+#remove trailing slash from build_dir
+conf[build_dir]=${conf[build_dir]%/}
+debug 2 "build dir set to ${conf[build_dir]}"
+debug 2 "config file set to ${conf[config_file]}"
+debug_cfg
+}
+
+
+
+read_local_cfg(){
+debug 1 "${FUNCNAME[0]}()"
+#
+# This function reads the config file and sets script variables
+#
+# Out:
+# sets: inst, src, obj, branch
+
+local conf_file="${conf[build_dir]}/${conf[config_file]}"
+if [[ ! -f "$conf_file" ]]; then
+    #create default config
+    cat > "$conf_file" << EOF
+# git_e17 - local configuration file
+#
+# INFO:
+# - lines starting with # are ignored
+# - make sure your user has write access to all choosen paths
+# - you are able to set the path outside the build dir
+
+# item=val - NO SPACES - NO QUOTES
+
+# this is the target dir of your installation
+install_path=/usr/local/e17
+# git repoistory directory
+src_path=${conf[build_dir]}/src-git
+# dir in which the
+object_path=${conf[build_dir]}/default-object-dir
+log_path=${conf[build_dir]}/log
+
+# packetlist to use basic, full
+packetlist=full
+# branch to checkout
+#branch=master
+# remote to pull from
+#remote=origin master
+# always update
+#update=true
+
+# on on compile error action: ask,exit,continue
+on_error=ask
+# number ot threads
+threads=8
+#niceness level
+nice=19
+#create documentation
+doc=false
+
+EOF
+
+    #end of default config
+    echo -e "You should edit Your new config in: \n$conf_file"
+    exit 0
+else
+    # read config
+    config="$(grep -v ^# < "$conf_file" | grep -v ^$)"
+    debug 3 "$config"
+    while IFS='=' read -r item value; do
+        conf["$item"]=${conf["$item"]:-"$value"}
+    done <<< "$config"
+fi
+debug_cfg
+}
+
+
+
+read_global_cfg(){
+#
+# add global configuration
+#
+debug 1 "${FUNCNAME[0]}()"
+    config="$(grep -v ^# < "$HOME/.git_e17" | grep -v ^$)"
+    debug 3 "$config"
+    while IFS='=' read -r item value; do
+        conf["$item"]=${conf["$item"]:-"$value"}
+    done <<< "$config"
+debug_cfg
+}
+
+
+
+assign_defaults(){
+conf[log_path]="${conf[log_path]:-"${conf[build_dir]}/log"}"
+conf[packagelist]="${conf[packagelist]:-"full"}"
+conf[on_error]="${conf[on_error]:-"ask"}"
+conf[nice]="${conf[nice]:-"19"}"
+
+#conf[build_dir]=""   # not given here so it can be read from
+#conf[config_file]="" # commandline or ~/.git_e17
+#conf[packagelist]="" #
+#conf[on_error]=""    #
+#conf[nice]=""        #
+
+## tanslate package_list
+case "${conf[packagelist]}" in
+    full)
+        packages_want=($packages_full)
+        ;;
+    half)
+        packages_want=($packages_half)
+        ;;
+    basic)
+        packages_want=($packages_basic)
+        ;;
+    *)
+        #TODO - better output
+        echo -e "\nno valid package list"
+        exit 1
+        ;;
+esac
+}
+
+
+
+check_cfg(){
+debug 1 "${FUNCNAME[0]}()"
+#
+# check configuration
+#
+
+local paths="install_path build_dir log_path src_path object_path log_path"
+local output="debug debug_level dev verbose animate"
+local conf_items="$paths $output action config_file packagelist nice on_error"
+
+
+for item in $conf_items; do
+    if [[ -z "${conf["$item"]}" ]]; then
+        echo "value for $item is not set - please edit your config file"
+        exit 1
+    fi
+done
+# check if directories are writeable
+for path in $paths; do
+    if [[ ! -d "${conf[$path]}" ]]; then
+        mkdir -p "${conf[$path]}" && continue
+        echo "unable to create the directory ${conf[$path]} - create it!"
+        exit 1
+    elif [[ ! -w "${conf[$path]}" ]]; then
+        echo "The directory ${conf[$path]} is not writeable for you:( - change that!"
+        exit 1
+    fi
+done
+
+for key in ${!conf[@]}; do
+    case ${conf[key]} in
+        true|yes)
+            conf[key]=true
+            ;;
+        false|no)
+            conf[key]=false
+            ;;
+        *)
+            continue
+        ;;
+    esac
+done
+debug_cfg
+}
+
+get_src(){
+debug 1 "${FUNCNAME[0]}()"
+local src_path="${conf[src_path]}"
+local git="${conf[git_repo]}"
+local branch="${conf[branch]}"
+local remote="${conf[remote]}"
+
+#does the repo exist
+if [[ ! -d ${conf[src_path]} ]]; then
+    #create it
+    git clone "${conf[git_repo]}" "$src_path"
+fi
+
+#change to repo
+cd "$src_path" || exit 2
+
+#get current branch
+local cbranch="$(git symbolic-ref HEAD)"
+cbranch=${cbranch##*/}
+debug 1 "current branch: $cbranch"
+
+#select right branch
+if [[ -n "$branch" && "$branch" != "$cbranch" ]]; then
+    if ! git checkout ${conf[branch]}; then
+        echo "unable to checkout selected branch - fix your repository"
+        exit 1;
+    fi
+fi
+
+#update
+if [[ "${conf[update]}" == "true" ]]; then
+    #TODO - check status
+    debug 1 "remote: $remote"
+    if ! git pull $remote | tee "${conf[build_dir]}/git.log"; then
+        echo "git pull failed"
+    fi
+fi
+}
+
+set_env(){
+debug 1 "${FUNCNAME[0]}()"
+local install_path="${conf[install_path]}"
+
+echo -n "- setting env variables ..."
+msg ""
+
+export PATH="$install_path/bin:$PATH"
+debug 1 "PATH=$PATH"
+export ACLOCAL_FLAGS="-I $install_path/share/aclocal $ACLOCAL_FLAGS"
+debug 1 "ACLOCAL_FLAGS=$ACLOCAL_FLAGS"
+export LD_LIBRARY_PATH="$install_path/lib:$LD_LIBRARY_PATH"
+debug 1 "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+export PKG_CONFIG_PATH="$install_path/lib/pkgconfig:$PKG_CONFIG_PATH"
+debug 1 "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+export CPPFLAGS="$CPPFLAGS -I$install_path/include"
+debug 1 "CPPFLAGS=$CPPFLAGS"
+export LDFLAGS="$LDFLAGS -L$install_path/lib"
+debug 1 "LDFLAGS=$LDFLAGS"
+export CFLAGS="$CFLAGS"
+debug 1 "CFLAGS=$CFLAGS"
+export PYTHONPATH="$(python -c "import distutils.sysconfig; print distutils.sysconfig.get_python_lib(prefix='$install_path')" 2>/dev/null)"
+debug 1 "PYTHONPATH=$PYTHONPATH"
+export PYTHONINCLUDE="$(python -c "import distutils.sysconfig; print distutils.sysconfig.get_python_inc(prefix='$install_path')" 2>/dev/null)"
+debug 1 "PYTHONINCLUDE=$PYTHONINCLUDE"
+export NOCONFIGURE="true"
+debug 1 "NOCONFIGURE=$NOCONFIGURE"
+msg_ani " OK"
+
+echo -n "- creating destination dirs ..."
+msg ""
+local failed=false
+for dir in "$install_path/share/aclocal" "$PYTHONPATH" "$PYTHONINCLUDE"; do
+    if [[ ! -w "$dir" ]]; then
+        if ! mkdir -p "$dir"; then
+            echo "please create the $dir as root and allow you user to wirte to it"
+            echo "sudo mkdir -p $dir"
+            echo "sudo chown $USER:$USER $dir"
+            failed=true
+        fi
+    fi
+done
+## TODO ## OUTPUT
+$failed && echo "failed" && exit 1
+msg_ani " OK"
+}
+
+find_local_path (){
+debug 1 "${FUNCNAME[0]}() $@"
+#
+# Function that should find the source path to the current package
+#
+# In:
+# $1 - package name
+#
+# Out:
+# sets: conf[current_package_path]
+#
+msg -n "  - finding local path ..."
+
+local name=$1
+local path=""
+local src_path="${conf[src_path]}/trunk"
+
+#prune dirs to ignore
+local prune=""
+for dir in devs DOCS E16 EXAMPLES TEST web packaging; do
+    prune="-o -path $src_path/$dir $prune"
+done
+prune=${prune#-o}
+
+#use find to get possible dirs
+debug-x
+dirs="$(find "$src_path" -maxdepth 3 -type d \( $prune \) -prune -o -type d -name "$name" -printf "%P\n" )"
+debug+x
+debug 2 "$dirs"
+
+#pick the one with the sortest path
+local path_len=666
+while read -r path ;do
+    if [[ -d "$src_path/$path" ]] && (( ${#path} < $path_len ));  then
+        conf[current_package_path]="$path"
+        path_len=${#path}
+    fi
+done <<< "$dirs"
+debug 1 "path selected for $pkg: $src_path/${conf[current_package_path]}"
+
+if [[ -z "${conf[current_package_path]}" ]] ; then
+    on_error "Source path for $pkg was not found!"
+fi
+msg "OK"
+}
+
+run_cmd(){
+debug 1 "${FUNCNAME[0]}() $@"
+#
+#
+#
+pkg="$1"
+src="$2"
+obj="$3"
+title="$4"
+shift 4
+
+if [[ -n "$obj" ]]; then
+    #clean it whatever it means
+    mkdir -p "$obj" || on_error "unable to create $obj"
+    cd "$obj" || on_error "unable to cd into $obj"
+else
+    cd "$src" || on_error "unable to cd into $src"
+fi
+
+log_file="${conf[log_path]}/$pkg.log"
+
+# animate
+${conf[animate]} && echo -n "$title: "
+
+debug 1 "running in path: $(pwd)"
+if  ${conf[verbose]} || ${conf[debug]} || ${conf[dev]} ; then
+    verbose "running: nice -n ${conf[nice]} $@ 2>&1 | tee $log_file"
+    nice -n "${conf[nice]}" $@ 2>&1 | tee -a "$log_file" &
+else
+    verbose "running: nice -n ${conf[nice]} $@ &>>$log_file"
+    nice -n "${conf[nice]}" "$@" &>>"$log_file" &
+    pid="$!"
+    ${conf[animate]} && rotate "$pid" " $tile - " "$log_file"
+fi
+
+
+}
+
+
+compile(){
+debug 1 "${FUNCNAME[0]}() $@"
+local pkg="$1"
+debug 1 "package: $pkg"
+local src_path="${conf[src_path]}/trunk/$2"
+debug 1 "srcpath: $src_path"
+local obj_path="${conf[object_path]}/$1"
+conf[current_failed]=false
+local log_file="${conf[log_path]}/$pkg.log"
+
+#delete old log file
+[[ -e "$log_file" ]] && rm "$log_file"
+
+local install_path="${conf[install_path]}"
+local pkg_conf_args="${conf["${pgk}_args"]}"
+local build_type=""
+local make_extra=""
+if   [ -e "$src_path/autogen.sh" ];
+    then build_type="autogen"
+elif [ -e "$src_path/bootstrap" ];
+    then build_type="bootstrap"
+elif [ -e "$src_path/Makefile.PL" ];
+    then build_type="perl"
+elif [ -e "$src_path/Makefile" ]; then
+    build_type="make"
+	make_extra="PREFIX=${conf[install_path]}"
+elif [ -e "$src_path/setup.py" ];
+    then build_type="python"
+fi
+
+debug 1 "Type of build system $build_type"
+
+#for animation
+${conf[animate]} && write_appname "$pkg"
+#use the power of ;;& - muahahha
+case "$build_type" in
+    autogen)
+        run_cmd "$pkg" "$src_path" "" "autogen" "./autogen.sh"
+        ${conf[current_failed]} && on_error "$pkg failed to build" && return
+        ;;&
+    bootstrap)
+        run_cmd "$pkg" "$src_path" "" "boostrap" "./bootstrap"
+        ${conf[current_failed]} && on_error "$pkg failed to build" && return
+        ;;&
+    perl)
+        run_cmd "$pkg" "$src_path" "$obj_path" "perlmake" "perl $src_path/Makefile.PL prefix=$install_path"
+        ${conf[current_failed]} && on_error "$pkg failed to build" && return
+        ;;&
+    autogen|bootstrap) #configure
+		run_cmd "$pkg" "$src_path" "$obj_path" "configure" "$src_path/configure --prefix=$install_path $pgk_conf_args"
+        ${conf[current_failed]} && on_error "$pkg failed to build" && return
+        ;;&
+    autogen|bootstrap|perl|make) # make && make install
+		run_cmd "$pkg" "$src_path" "$obj_path" "make" "$make_extra make -j ${conf[threads]}"
+        ${conf[current_failed]} && on_error "$pkg failed to build" && return
+
+		run_cmd "$pkg" "$src_path" "$obj_path" "install" "make install"
+        ${conf[current_failed]} && on_error "$pkg failed to build" && return
+        ;;
+    python)
+		run_cmd "$pkg" "$src_path" "" "setup.py-build" "python setup.py build build_ext --include-dirs=$PYTHONINCLUDE $pkg_conf_args"
+		run_cmd "$pkg" "$src_path" "" "setip-py-install" "python setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
+        echo "bla"
+        ;;
+    *)
+        echo "no build system found"
+esac
+
+if ! ${conf[current_failed]}; then
+    ${conf[animate]} && echo " OK"
+else
+    ${conf[animate]} && echo " FAILED"
+fi
+}
+
+build(){
+debug 1 "${FUNCNAME[0]}() $@"
+#
+# This functions should find the
+#
+for pkg in "${packages_want[@]}"; do
+    msg "- trying to build $pkg ..."
+    conf[current_package_path]=""
+    find_local_path "$pkg"
+    cpath=${conf[current_package_path]}
+    if [[ -z "$cpath" ]]; then
+        echo "source path of of package $pkg not found - skipping"
+        continue
+    else
+        compile "$pkg" "$cpath"
+    fi
+done
+}
+
+## distcheck functions
+distcheck(){
+#echo -e "${bold}checking distribution ...${boldoff}"
+debug 1 "${FUNCNAME[0]}()"
+[[ "$@" != "distcheck" ]] && return
+#check for programs
+#find  distribution
+distribution="debian"
+case $distribution in
+    debian) debian ;;
+    *) : ;;
+esac
+exit 0
+}
+
+debian(){
+debug 1 "${FUNCNAME[0]}()"
+#dpkg -l check packages
+#ask to install dpkgs
+}
+
+### fancy output functions
+### taken from easy e17.sh - the code ist mostly unreviewed:(
+del_lines ()
+{
+cnt=0
+max=$1
+while [ ! "$cnt" == "$max" ]; do
+	echo -n -e "\b \b"
+	cnt=$(($cnt+1))
+done
+}
+rotate ()
+{
+pid=$1
+name="$2"
+log_file=$3
+animation_state=1
+log_line=""
+
+echo -n "     "
+while [[ "$(ps -p $pid -o comm=)" ]]; do
+    last_line=$(tail -1 "$log_file")
+	if [[ "$log_line" != "$last_line" ]]; then
+				echo -e -n "\b\b\b\b\b"
+				case $animation_state in
+					1)
+						echo -n "["
+						echo -n -e "\033[1m"
+						echo -n "\\o\\"
+						echo -n -e "\033[0m"
+						echo -n "]"
+						animation_state=2
+						;;
+					2)
+						echo -n "["
+						echo -n -e "\033[1m|o|\033[0m"
+						echo -n "]"
+						animation_state=3
+						;;
+					3)
+						echo -n "["
+						echo -n -e "\033[1m/o/\033[0m"
+						echo -n "]"
+						animation_state=4
+						;;
+					4)
+						echo -n "["
+						echo -n -e "\033[1m|o|\033[0m"
+						echo -n "]"
+						animation_state=5
+						;;
+					5)
+						echo -n "["
+						echo -n -e "\033[1m"
+						echo -n "\\o/"
+						echo -n -e "\033[0m"
+						echo -n "]"
+						animation_state=6
+						;;
+					6)
+						echo -n "["
+						echo -n -e "\033[1m|o|\033[0m"
+						echo -n "]"
+						animation_state=1
+						;;
+
+				esac
+		log_line=$last_line
+	fi
+	sleep 1
+done
+
+if ! ${conf[current_failed]}; then
+    del_lines 14
+else
+    del_lines 5
+fi
+}
+
+function write_appname ()
+{
+	name="$1"
+	hidden=$2
+	cnt="${#name}"
+	max=28
+
+	if [ "$hidden" ]; then
+		c=-3
+		while [ ! $c = $cnt ]; do
+			echo -n " "
+			c=$(($c+1))
+		done
+	else
+		echo -n "- $name "
+	fi
+
+	while [ ! $cnt = $max ]; do
+		echo -n "."
+		cnt=$(($cnt+1))
+	done
+	echo -n " "
+}
+
+
+### programm starts here
+
+# well it can be done as root
+distcheck "$@"
+# make sure main programm ist not run as root as it cause serious damage
+# i like to be sloppy - if you override this don't blame me:P
+if [[ $(id -u) -eq 0 ]]; then
+    echo "You should not run scripts as root! "
+fi
+main "$@"

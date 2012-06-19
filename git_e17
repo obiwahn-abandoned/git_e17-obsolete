@@ -39,6 +39,9 @@ conf[debug]=false
 conf[debug_level]=10
 conf[animate]=false
 
+#for use in errors
+e="\n       "
+
 bold=$(tput bold)
 boldoff=$(tput sgr0)
 
@@ -151,26 +154,37 @@ ask_to_count(){
 
 }
 ## helper error
-on_error(){
+#error
+err(){
+echo
+echo -n "Error: "
+echo "$@"
+}
+#fatal error
+ferr(){
+    err "$@"
+    exit 1
+}
+#non fatal error
+nerr(){
 debug 1 "${FUNCNAME[0]}() $@"
-#
-#
-#
-echo -e "$@"
+conf[current_failed]=true
+${conf[animate]} && [[ ${conf[on_error]} == "skip" ]] && return
+err "$@"
 case ${conf[on_error]} in
     exit)
         exit 1
-    ;;
+        ;;
     ask)
         local rv="$(ask_to_count)"
         [[ "$rv" == "no" ]] && exit 1
         ;;&
     *) #skip
         return
-        conf[current_skip]=true
-    ;;
+        ;;
 esac
 }
+
 
 #### main functions
 ### display help
@@ -180,42 +194,67 @@ debug 1 "${FUNCNAME[0]}()"
 # This functions displays the help file
 #
 cat << EOF
-git-e17
 
-git-e17 [options] action [action parameters]
+git_e17 - simple script for building enlightenment 17
+
+git-e17 [options] action [only <packagelist>]
 
 actions:
     build
-        build the whole e17
+        build everything
     update
-        build only packages that have changed
-    cleanbuild
-        remove alle obj files ..
+        like build but will build only packages
+        with changes and those with status failed
     fromscratch
         delete e17 installation and build e17 from scratch
         ATTENENTION: this will rm -fr $install_path
                      do not do is if you installed to /usr/local
-    only
+    list
+        list all available packages (TODO with description)
+only:
+    use only named packages
 
 options:
+    -h | --help  / --dev-help
+        show help / developer help
+            developer help will give you some more options
     --build-dir
         workdir for this script. It will contain the source, config and log
         files and dirs in which e17 is build. The default build_dir sould
         be set in ~/.git_e17
+    -u | --update
+        pull changes into branch - (git pull)
+    -v | --verbose
+        be verbose
+EOF
+}
+devhelp(){
+debug 1 "${FUNCNAME[0]}()"
+#
+# This functions displays the developer help file
+#
+cat << EOF
+
+extra actions:
+    clean[build|update]
+        is the same as --clean build
+
+extra options:
     -c | --conf <conf>
         config file - especially useful if you want multiple installs
         ONLY CONF NAME - NO FULL PATHS!!!
     -b | --branch <branch>
         branch, tag or commit to use
-    -u | --update
-        pull changes into branch - (git pull)
     -r | --remote <remote> <branch>
         select remote branch to pull (git pull remote branch)
-    -v | --verbose
+    --clean / --distclean
+        make clean / distclean before building
+    --vmake
+        more verbse make (V=1)
+    --conf_args
+        extra configure args - for all packages
     -d | --debug
-        enable debugging mode
-
-simple script for building e17 from git
+        enable script debugging mode
 EOF
 }
 ### commandline parsing
@@ -279,6 +318,12 @@ do
             shift
             ;;
         -h|--help)
+            echo ""
+            help
+            exit 0
+            ;;
+        --dev-help)
+            echo ""
             help
             exit 0
             ;;
@@ -290,14 +335,12 @@ done
 
 #parse action parameter
 debug 1 "action: $1"
-if [[ "$1" == @(build|update|cleanbuild|fromscratch|only) ]]; then
+if [[ "$1" == @(build|update|cleanbuild|cleanupdate|fromscratch|list) ]]; then
     conf[action]="$1"
     verbose "action is ${conf[action]}"
     shift
 else
-    echo -e "Error: no vaild action given"
-    echo -e "       use --help for usage info"
-    exit 1
+    ferr -e "No vaild action given${e}Use --help option for help"
 fi
 debug_cfg
 }
@@ -344,8 +387,7 @@ done <<< "$(grep -v ^# "$HOME/.git_e17" | grep -v ^$ )"
 
 debug 2 "The build dir must be set by now!! build_dir=${conf[build_dir]}"
 [[ ! ${conf[build_dir]} ]] && \
-    echo -e "build dir not set:( - please set it via commandline or ~/.git_e17" && \
-    exit 1
+    ferr "build_dir not set:( - please set it via commandline or ~/.git_e17"
 #remove trailing slash from build_dir
 conf[build_dir]=${conf[build_dir]%/}
 debug 2 "build dir set to ${conf[build_dir]}"
@@ -400,10 +442,13 @@ nice=19
 #create documentation
 doc=false
 
+## extra configure flags
+evas_conf_args=--enable-gl-x11
+
 EOF
 
     #end of default config
-    echo -e "You should edit Your new config in: \n$conf_file"
+    echo -e "\nYou should edit Your new config in: \n$conf_file"
     exit 0
 else
     # read config
@@ -453,9 +498,7 @@ case "${conf[packagelist]}" in
         packages_want=($packages_basic)
         ;;
     *)
-        #TODO - better output
-        echo -e "\nno valid package list"
-        exit 1
+        ferr "No valid package list packagelist=full|half|basic"
         ;;
 esac
 }
@@ -473,19 +516,16 @@ local conf_items="$paths $output action config_file packagelist nice on_error"
 
 for item in $conf_items; do
     if [[ -z "${conf["$item"]}" ]]; then
-        echo "value for $item is not set - please edit your config file"
-        exit 1
+        ferr "value for $item is not set - please edit your config file"
     fi
 done
 # check if directories are writeable
 for path in $paths; do
     if [[ ! -d "${conf[$path]}" ]]; then
         mkdir -p "${conf[$path]}" && continue
-        echo "unable to create the directory ${conf[$path]} - create it!"
-        exit 1
+        ferr "unable to create the directory ${conf[$path]} - create it!"
     elif [[ ! -w "${conf[$path]}" ]]; then
-        echo "The directory ${conf[$path]} is not writeable for you:( - change that!"
-        exit 1
+        ferr "The directory ${conf[$path]} is not writeable for you:( - change that!"
     fi
 done
 
@@ -529,8 +569,7 @@ debug 1 "current branch: $cbranch"
 #select right branch
 if [[ -n "$branch" && "$branch" != "$cbranch" ]]; then
     if ! git checkout ${conf[branch]}; then
-        echo "unable to checkout selected branch - fix your repository"
-        exit 1;
+        ferr "unable to checkout selected branch - fix your repository"
     fi
 fi
 
@@ -539,7 +578,7 @@ if [[ "${conf[update]}" == "true" ]]; then
     #TODO - check status
     debug 1 "remote: $remote"
     if ! git pull $remote | tee "${conf[build_dir]}/git.log"; then
-        echo "git pull failed"
+        nerr "git pull failed"
     fi
 fi
 }
@@ -579,6 +618,7 @@ local failed=false
 for dir in "$install_path/share/aclocal" "$PYTHONPATH" "$PYTHONINCLUDE"; do
     if [[ ! -w "$dir" ]]; then
         if ! mkdir -p "$dir"; then
+            echo
             echo "please create the $dir as root and allow you user to wirte to it"
             echo "sudo mkdir -p $dir"
             echo "sudo chown $USER:$USER $dir"
@@ -598,13 +638,20 @@ debug 1 "${FUNCNAME[0]}() $@"
 #
 for pkg in "${packages_want[@]}"; do
     msg "- trying to build $pkg ..."
+
+    #initialize vars
+    conf[current_failed]=false
     conf[current_package_path]=""
+
+    #find src
     find_local_path "$pkg"
     cpath=${conf[current_package_path]}
     if [[ -z "$cpath" ]]; then
-        echo "source path of of package $pkg not found - skipping"
+        nerr "source path of of package $pkg not found"
+        msg_ani "SKIP"
         continue
     else
+        #compile it!
         compile "$pkg" "$cpath"
     fi
 done
@@ -651,9 +698,10 @@ done <<< "$dirs"
 debug 1 "path selected for $pkg: $src_path/${conf[current_package_path]}"
 
 if [[ -z "${conf[current_package_path]}" ]] ; then
-    on_error "Source path for $pkg was not found!"
+    nerr "Source path for $pkg was not found!"
+else
+    msg "OK"
 fi
-msg "OK"
 }
 ### sets up parameters and calls run_cmd
 compile(){
@@ -670,9 +718,9 @@ local log_file="${conf[log_path]}/$pkg.log"
 [[ -e "$log_file" ]] && rm "$log_file"
 
 local install_path="${conf[install_path]}"
-local pkg_conf_args="${conf["${pgk}_args"]}"
+local pkg_conf_args="${conf["${pgk}_conf_args"]}"
 local build_type=""
-local make_extra=""
+unset PREFIX
 if   [ -e "$src_path/autogen.sh" ];
     then build_type="autogen"
 elif [ -e "$src_path/bootstrap" ];
@@ -681,7 +729,7 @@ elif [ -e "$src_path/Makefile.PL" ];
     then build_type="perl"
 elif [ -e "$src_path/Makefile" ]; then
     build_type="make"
-	make_extra="PREFIX=${conf[install_path]}"
+	export PREFIX="${conf[install_path]}"
 elif [ -e "$src_path/setup.py" ];
     then build_type="python"
 fi
@@ -694,40 +742,54 @@ ${conf[animate]} && write_appname "$pkg"
 case "$build_type" in
     autogen)
         run_cmd "$pkg" "$src_path" "" "autogen" "./autogen.sh"
-        ${conf[current_failed]} && on_error "$pkg failed to build" && return
+        ${conf[current_failed]} && break
         ;;&
     bootstrap)
         run_cmd "$pkg" "$src_path" "" "boostrap" "./bootstrap"
-        ${conf[current_failed]} && on_error "$pkg failed to build" && return
+        ${conf[current_failed]} && break
         ;;&
     perl)
         run_cmd "$pkg" "$src_path" "$obj_path" "perlmake" "perl $src_path/Makefile.PL prefix=$install_path"
-        ${conf[current_failed]} && on_error "$pkg failed to build" && return
+        ${conf[current_failed]} && break
         ;;&
     autogen|bootstrap) #configure
 		run_cmd "$pkg" "$src_path" "$obj_path" "configure" "$src_path/configure --prefix=$install_path $pgk_conf_args"
-        ${conf[current_failed]} && on_error "$pkg failed to build" && return
+        ${conf[current_failed]} && break
         ;;&
-    autogen|bootstrap|perl|make) # make && make install
-		run_cmd "$pkg" "$src_path" "$obj_path" "make" "$make_extra make -j ${conf[threads]}"
-        ${conf[current_failed]} && on_error "$pkg failed to build" && return
+    autogen|bootstrap|perl) # make && make install
+		run_cmd "$pkg" "$src_path" "$obj_path" "make" "make -j ${conf[threads]}"
+        ${conf[current_failed]} && break
 
 		run_cmd "$pkg" "$src_path" "$obj_path" "install" "make install"
-        ${conf[current_failed]} && on_error "$pkg failed to build" && return
+        ${conf[current_failed]} && break
+        ;;
+    make) # make && make install
+		run_cmd "$pkg" "$src_path" "" "make" "$make_extra make -j ${conf[threads]}"
+        ${conf[current_failed]} && break
+
+		run_cmd "$pkg" "$src_path" "" "install" "make install"
+        ${conf[current_failed]} && break
         ;;
     python)
 		run_cmd "$pkg" "$src_path" "" "setup.py-build" "python setup.py build build_ext --include-dirs=$PYTHONINCLUDE $pkg_conf_args"
+        ${conf[current_failed]} && break
 		run_cmd "$pkg" "$src_path" "" "setip-py-install" "python setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
+        ${conf[current_failed]} && break
         echo "bla"
         ;;
     *)
-        echo "no build system found"
+        msg echo "no build system found"
+        msg_ani  "no build system"
+        conf[current_failed]=true
+        return
+
+
 esac
 
 if ! ${conf[current_failed]}; then
-    ${conf[animate]} && echo " OK"
+    msg_ani "OK"
 else
-    ${conf[animate]} && echo " FAILED"
+    msg_ani "FAILED"
 fi
 }
 ### runs the commands that are actually used to build the code
@@ -751,22 +813,42 @@ else
 fi
 
 log_file="${conf[log_path]}/$pkg.log"
-
-# animate
-${conf[animate]} && echo -n "$title: "
-
 debug 1 "running in path: $(pwd)"
-if  ${conf[verbose]} || ${conf[debug]} || ${conf[dev]} ; then
-    verbose "running: nice -n ${conf[nice]} $@ 2>&1 | tee $log_file"
-    nice -n "${conf[nice]}" $@ 2>&1 | tee -a "$log_file" &
-else
-    verbose "running: nice -n ${conf[nice]} $@ &>>$log_file"
-    nice -n "${conf[nice]}" "$@" &>>"$log_file" &
+
+if ${conf[animate]}; then
+    nice -n "${conf[nice]}" $@ &>>"$log_file" &
     pid="$!"
-    ${conf[animate]} && rotate "$pid" " $tile - " "$log_file"
+    ( rotate "$pid" "${title}: " "$log_file" ) &
+    if wait $pid; then
+        wait
+    else
+        conf[current_failed]=true
+    fi
+elif ${conf[verbose]} || ${conf[debug]} || ${conf[dev]} ; then
+    msg -n "  - $title ... "
+    verbose "running: nice -n ${conf[nice]} $@ 2>&1 | tee $log_file"
+    if nice -n "${conf[nice]}" $@ 2>&1 | tee -a "$log_file"; then
+        msg "OK"
+    else
+        msg "failed"
+        echo
+        tail -n 30 "$log_file"
+        echo
+        nerr "Failed to build $pkg"
+    fi
+else
+    msg -n "  - $title ... "
+    verbose "running: nice -n ${conf[nice]} $@ &>$log_file"
+    if nice -n "${conf[nice]}" $@ &>"$log_file"; then
+        msg "OK"
+    else
+        msg "failed"
+        echo
+        tail "$log_file"
+        echo
+        nerr "Failed to build $pkg"
+    fi
 fi
-
-
 }
 
 
@@ -794,13 +876,12 @@ debug 1 "${FUNCNAME[0]}()"
 ### fancy output functions
 ### taken from easy e17.sh - the code ist mostly unreviewed:(
 ## TODO - rewrite -- all of them :)
-del_lines ()
-{
+del_word(){
 cnt=0
-max=$1
-while [ ! "$cnt" == "$max" ]; do
+max=${#1}
+while (( cnt < max )); do
 	echo -n -e "\b \b"
-	cnt=$(($cnt+1))
+	(( cnt++ ))
 done
 }
 rotate ()
@@ -810,7 +891,7 @@ name="$2"
 log_file=$3
 animation_state=1
 log_line=""
-
+echo -n "$name"
 echo -n "     "
 while [[ "$(ps -p $pid -o comm=)" ]]; do
     last_line=$(tail -1 "$log_file")
@@ -863,12 +944,7 @@ while [[ "$(ps -p $pid -o comm=)" ]]; do
 	fi
 	sleep 1
 done
-
-if ! ${conf[current_failed]}; then
-    del_lines 14
-else
-    del_lines 5
-fi
+del_word "$name[|-|]"
 }
 function write_appname ()
 {

@@ -1,7 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # vim:expandtab:ts=4:sw=4:fdm=marker:fmr={,}
-#
 # To Inspect the code use vim, modelines and folds!!!!
+
+#########################################################################
+# This Scripts is based on Mornlenxus' easy_e17.sh                      #
+# It shares some of it's ideas as well as some code.                    #
+# The original script can be found at:                                  #
+# http://omicron.homeip.net/projects/#easy_e17.sh                       #
+#                                                                       #
+# Licebse: BSD licence                                                  #
+# Get the lastes version at: https://github.com/ObiWahn/git_e17         #
+# Coded by Jan Christoph Uhde (linux@obiwahn.org)                       #
+#########################################################################
 
 ### global variable definitions
 #global vars {
@@ -382,7 +392,7 @@ packetlist=full
 #update=true
 
 # on on compile error action: ask,exit,continue
-on_error=ask
+on_error=skip
 # number ot threads
 threads=8
 #niceness level

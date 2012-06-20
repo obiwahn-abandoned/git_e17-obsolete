@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# vim:expandtab:ts=4:sw=4:fdm=marker:fmr={,}
+# vim:expandtab:ts=4:sw=4:fdm=marker:fmr={{{,}}}
 # To Inspect the code use vim, modelines and folds!!!!
 
 #########################################################################
@@ -13,8 +13,7 @@
 # Coded by Jan Christoph Uhde (linux@obiwahn.org)                       #
 #########################################################################
 
-### global variable definitions
-#global vars {
+### global variable definitions {{{
 efl_basic="eina eet evas ecore efreet eio eeze e_dbus embryo edje azy ethumb elementary"
 efl_extra="imlib2 emotion enlil libast python-evas python-ecore python-e_dbus python-edje python-emotion python-elementary shellementary"
 bin_basic="exchange e"
@@ -51,112 +50,39 @@ boldoff=$(tput sgr0)
 
 conf[git_repo]=http://git.enlightenment.fr/cgit.cgi/svn.git/
 
-#end global vars }
-### function definitions
+###end global vars }}}
+#### main function {{{
 main(){
 debug 1 "${FUNCNAME[0]}()"
 
-write_bold -n "reading command line options ..."
+section " reading commandline options "
 get_opts "$@"
-msg ""
-msg_ani "$(write_bold -n " OK")"
-
-write_bold -n "reading configuration file ..."
-msg ""
 get_build_dir_from_global_cfg
+section " reading local configuration options "
 read_local_cfg
+section " reading global cfg options "
 read_global_cfg
+section " assigning default vaules  "
 assign_defaults
-check_cfg
-msg_ani "$(write_bold -n " OK")"
-
 ##
 get_src
-
-write_bold "starting to build ..."
 set_env
 build
 }
+#### end main function }}}
 
-### helper
-## helper debuging
-debug(){
-#
-# This function displays debug information
-# when the debug level set via commandline
-# is greater or equal the level passed to
-# the function
-#
-# In:
-# $1 - level
-# $2 - message
-#
-${conf[debug]} || return
-level="$1"; msg="$2"
-if (( level <= ${conf[debug_level]} )); then
-    while read -r line; do
-        echo "debug $level: $line" 1>&2
-    done <<< "$msg"
-fi
+### new code
+inter_lists(){
+    #FIXME
+    echo "intersection of 2 lists"
+}
+echo_long(){
+    #FIXME
+    echo "this is al long string"
 }
 
-debug_cfg(){
-${conf[debug]} || return
-echo
-debug 4 "current configuration:"
-for item in ${!conf[@]}; do
-    debug 4 "$item=${conf["$item"]}"
-done
-echo
-}
-
-print_array(){
-array="$1"
-shift
-for item in "${array[@]}"; do
-    echo "$@" "$item"
-done
-}
-
-debug-x(){ ${conf[debug]} && set -x; }
-debug+x(){ ${conf[debug]} && set +x; }
-
-## helper output
-write_bold(){ tput bold; echo "$@"; tput sgr0; }
-msg(){ ${conf[animate]} || echo "$@"; }             #normal mode message - only when not animated
-verbose(){ ${conf[verbose]} && echo -e "$@";}       #verbose message
-msg_ani(){ ${conf[animate]} && echo "$@"; }         #animation mode message
-
-ask_to_con(){
-while true; do
-    read -p "The Programm encountered an error - do you want to continue? (y/n) " yn
-    case "$yn" in
-        [Yy]*) echo "yes"; break ;;
-        [Nn]*) echo "no" ; break ;;
-        *) echo "Please answer with yes or no." 1>&2 ;;
-    esac
-done
-}
-## helper for error
-#error
-err(){ echo; echo -n "Error: "; echo "$@"; }
-#fatal error
-ferr(){ err "$@"; exit 1; }
-#non fatal error
-nerr(){
-debug 1 "${FUNCNAME[0]}() $@"
-g_current_failed=true
-[[ ${conf[on_error]} == "skip" ]] && return
-err "$@"
-case ${conf[on_error]} in
-    exit) exit 1 ;;
-    ask)  local rv="$(ask_to_con)"; [[ "$rv" == "no" ]] && exit 1 ;;
-esac
-}
-
-
-#### main functions
-### display help
+##### functions used in main {{{
+### display help - help(), devhelp() {{{
 help(){
 debug 1 "${FUNCNAME[0]}()"
 #
@@ -231,8 +157,10 @@ extra options:
         enable script debugging mode
 EOF
 }
-### commandline parsing
-get_opts(){
+### end help }}}
+
+### parse command line
+get_opts(){ #{{{
 debug 1 "${FUNCNAME[0]}()"
 #
 # This function reads the command line arguments
@@ -245,40 +173,44 @@ debug 1 "${FUNCNAME[0]}()"
 #
 # TODO - idiot proof checking of arguments
 #
+
 while :
 do
     case $1 in
         --build-path)
             conf[build_path]="$2"
-            debug 1 "build path: ${conf[build_path]}"
+            echo "found option: --build-path = $2"
             ;;
         -c|--conf)
             conf[confg_file]="$2"
-            debug 1 "config: ${conf[confif_file]}"
+            echo "found option: --conf = $2"
             shift 2
             ;;
         -b|--branch)
             conf[branch]="$2"
-            debug 1 "branch: ${conf[branch]}"
+            echo "found option: --branch = $2"
             shift 2
             ;;
         -r|--remote)
-            conf[remote]="$2 $3"
-            debug 1 "remote: ${conf[remote]}"
-            shift 3
+            conf[remote]="$2"
+            echo "found option: --remote = $2"
+            shift 2
             ;;
         -p|--pull|--source-update)
             conf[pull]=true
+            echo "found option: --pull"
             shift
             ;;
         -s|--skip-errors)
             conf[on_error]=skip
+            echo "found option: --skip-errors"
             shift
             ;;
         -a|--animate)
             conf[animate]=true
             conf[debug]=false
             conf[verbose]=false
+            echo "found option: --animate"
             shift
             ;;
         -d|--debug)
@@ -286,24 +218,26 @@ do
             conf[animate]=false
             conf[verbose]=true
             conf[debug_level]=4
-            debug 1 "debugging mode enabled"
+            echo "found option: --debug"
             shift
             ;;
         -v|--verbose)
             conf[verbose]=true
             conf[animate]=false
-            debug 1 "verbose mode enabled"
+            echo "found option: --verbose"
             shift
             ;;
         -h|--help)
             echo ""
             help
+            echo "found option: --help"
             exit 0
             ;;
         --dev-help)
             echo ""
             help
             devhelp
+            echo "found option: --dev-help"
             exit 0
             ;;
         *) #no more options beakb
@@ -316,7 +250,7 @@ done
 debug 1 "action: $1"
 if [[ "$1" == @(build|update|cleanbuild|cleanupdate|fromscratch|list) ]]; then
     conf[action]="$1"
-    verbose "action is ${conf[action]}"
+    echo "selected action is ${conf[action]}"
     shift
 else
     ferr -e "No vaild action given${e}Use --help option for help"
@@ -325,12 +259,14 @@ fi
 if [[ "$1" == only ]]; then
     shift
     packages="$@"
+    echo "only: $packages"
 fi
 
 debug_cfg
-}
-### get build dir form gloabl conf and create conf if not exisitent
-get_build_dir_from_global_cfg(){
+} #}}}
+
+### get build_dir form ~/.git_e17 || create the file
+get_build_dir_from_global_cfg(){ #{{{
 debug 1 "${FUNCNAME[0]}()"
 #
 # Read parts of the gobal config
@@ -340,6 +276,7 @@ debug 1 "${FUNCNAME[0]}()"
 #
 # Out:
 #   sets: conf[build_dir], conf[config_file]
+#
 debug 1 "build dir: $1"
 if [[ ! -f $HOME/.git_e17 ]]; then
     cat > "$HOME/.git_e17" << EOF
@@ -378,16 +315,18 @@ conf[build_dir]=${conf[build_dir]%/}
 debug 2 "build dir set to ${conf[build_dir]}"
 debug 2 "config file set to ${conf[config_file]}"
 debug_cfg
-}
-### read default cfg or the one given on commandline
-read_local_cfg(){
+} #}}}
+
+### read configuration in build directory
+read_local_cfg(){ #{{{
 debug 1 "${FUNCNAME[0]}()"
 #
 # This function reads the config file and sets script variables
 #
 # Out:
 # sets: inst, src, obj, branch
-
+#
+#
 local conf_file="${conf[build_dir]}/${conf[config_file]}"
 if [[ ! -f "$conf_file" ]]; then
     #create default config
@@ -442,9 +381,10 @@ else
     done <<< "$config"
 fi
 debug_cfg
-}
-### read rest of global_cfg - only overwrite unset options
-read_global_cfg(){
+} #}}}
+
+### read rest of ~/.git_e17 - sets only overwrite unset options
+read_global_cfg(){ #{{{
 #
 # add global configuration
 #
@@ -456,7 +396,7 @@ debug 1 "${FUNCNAME[0]}()"
     done <<< "$config"
 debug_cfg
 }
-### assign default_values
+### assign default values
 assign_defaults(){
 conf[log_path]="${conf[log_path]:-"${conf[build_dir]}/log"}"
 conf[packagelist]="${conf[packagelist]:-"full"}"
@@ -472,9 +412,10 @@ if [[ ! $packages ]]; then
     esac
 fi
 
-}
+} #}}}
+
 ### check for missing options and unwritable paths
-check_cfg(){
+check_cfg(){ #{{{
 debug 1 "${FUNCNAME[0]}()"
 #
 # check configuration
@@ -511,13 +452,14 @@ for key in ${!conf[@]}; do
     esac
 done
 debug_cfg
-}
+} #}}}
+
 ### functions that scan source code and select packages to be build
-get_src(){
+### TODO SPLIT FUNCTION
+### calls: find_local_path
+get_src(){ #{{{
 debug 1 "${FUNCNAME[0]}()"
 
-write_bold -n "getting source ... "
-msg ""
 g_current_failed=false
 local src_path="${conf[src_path]}"
 local git="${conf[git_repo]}"
@@ -549,14 +491,17 @@ fi
 
 # -pull option
 if [[ "${conf[pull]}" == "true" ]]; then
+    section " pulling source from server "
     debug 1 "remote: $remote"
     verbose "If the updates seem sonfusing try to git reset --hard HEAD your repo"
-    ${conf[animate]} && git pull $remote &>"${conf[build_dir]}/git.log" || g_current_failed=true
-    ! ${conf[animate]} && { git pull $remote | tee "${conf[build_dir]}/git.log" || nerr "git pull failed"; }
+    if ! git pull $remote | tee "${conf[build_dir]}/git.log" ; then
+        nerr "git pull failed"
+    fi
 fi
 
 # action update
 if [[ "${conf[action]}" == "update" ]]; then
+    section " checking for not up to date packages "
     debug 1 "getting paths where files changed"
     local new_files="$(
         while read -r line; do
@@ -584,52 +529,47 @@ if [[ "${conf[action]}" == "update" ]]; then
         fi
     done
     packages="$packages_new"
-fi
-
-#animation crap - i'll rip it out ## TODO put this in a function with configurable text
-if $g_current_failed ; then
-    msg_ani "$(write_bold -n "FAILED")"
-    ${conf[animate]} && nerr "Error Updating or Getting source"
-else
-    msg_ani "$(write_bold -n "OK")"
+    if [[ $packages ]]; then
+        echo "The following packages are not up to date: "
+        echo "$packages"
+    fi
 fi
 
 # Got nothing to do?
-[[ ! $packages ]] && echo "No Packages are selected to be build ... Quitting!" && exit 0
+if ! [[ $packages ]]; then
+    echo "No Packages are selected to be build ... Quitting!"
+    exit 0
+fi
+} #}}}
 
-}
-### set up the enc
-set_env(){
+### set up the build environment
+set_env(){ #{{{
 debug 1 "${FUNCNAME[0]}()"
 local install_path="${conf[install_path]}"
 
-echo -n "- setting env variables ..."
-msg ""
+section " setting env variables ..."
 
 export PATH="$install_path/bin:$PATH"
-debug 1 "PATH=$PATH"
+echo "PATH=$PATH"
 export ACLOCAL_FLAGS="-I $install_path/share/aclocal $ACLOCAL_FLAGS"
-debug 1 "ACLOCAL_FLAGS=$ACLOCAL_FLAGS"
+echo "ACLOCAL_FLAGS=$ACLOCAL_FLAGS"
 export LD_LIBRARY_PATH="$install_path/lib:$LD_LIBRARY_PATH"
-debug 1 "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
 export PKG_CONFIG_PATH="$install_path/lib/pkgconfig:$PKG_CONFIG_PATH"
-debug 1 "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
 export CPPFLAGS="$CPPFLAGS -I$install_path/include"
-debug 1 "CPPFLAGS=$CPPFLAGS"
+echo "CPPFLAGS=$CPPFLAGS"
 export LDFLAGS="$LDFLAGS -L$install_path/lib"
-debug 1 "LDFLAGS=$LDFLAGS"
+echo "LDFLAGS=$LDFLAGS"
 export CFLAGS="$CFLAGS"
-debug 1 "CFLAGS=$CFLAGS"
+echo "CFLAGS=$CFLAGS"
 export PYTHONPATH="$(python -c "import distutils.sysconfig; print distutils.sysconfig.get_python_lib(prefix='$install_path')" 2>/dev/null)"
-debug 1 "PYTHONPATH=$PYTHONPATH"
+echo "PYTHONPATH=$PYTHONPATH"
 export PYTHONINCLUDE="$(python -c "import distutils.sysconfig; print distutils.sysconfig.get_python_inc(prefix='$install_path')" 2>/dev/null)"
-debug 1 "PYTHONINCLUDE=$PYTHONINCLUDE"
+echo "PYTHONINCLUDE=$PYTHONINCLUDE"
 export NOCONFIGURE="true"
-debug 1 "NOCONFIGURE=$NOCONFIGURE"
-msg_ani " OK"
+echo "NOCONFIGURE=$NOCONFIGURE"
 
-echo -n "- creating destination dirs ..."
-msg ""
 local failed=false
 for dir in "$install_path/share/aclocal" "$PYTHONPATH" "$PYTHONINCLUDE"; do
     if [[ ! -w "$dir" ]]; then
@@ -644,16 +584,19 @@ for dir in "$install_path/share/aclocal" "$PYTHONPATH" "$PYTHONINCLUDE"; do
 done
 ## TODO ## OUTPUT
 $failed && echo "failed" && exit 1
-msg_ani " OK"
-}
-### build - calls: find_local_path, compile
-build(){
+} #}}}
+
+### build
+### calls: find_local_path, compile
+build(){ #{{{
 debug 1 "${FUNCNAME[0]}() $@"
 #
 # This functions should find the
 #
-debug 1 "PACKAGES: $packages"
-msg "The following packages will be build: $packages"
+section " entering build phase "
+echo "The following packages will be build:"
+echo "$packages"
+
 for pkg in $packages; do
     msg "- trying to build $pkg ..."
 
@@ -686,9 +629,10 @@ for pkg in $packages; do
 done
 
 [[ $packages_failed ]] && echo "The following packages failed to build: $packages_failed"
-}
+} #}}}
+
 ### find the sourcecode of a pacakge
-find_local_path (){
+find_local_path (){ #{{{
 debug 1 "${FUNCNAME[0]}() $@"
 #
 # Function that should find the source path to the current package
@@ -729,9 +673,11 @@ debug 1 "path selected for $pkg: $src_path/${conf[current_package_path]}"
 if [[ -z "${conf[current_package_path]}" ]] ; then
     nerr "Source path for $pkg was not found!"
 fi
-}
-### sets up parameters and calls run_cmd
-compile(){
+} #}}}
+
+### sets up configure parameters
+### calls: run_cmd
+compile(){ #{{{
 debug 1 "${FUNCNAME[0]}() $@"
 local pkg="$1"
 debug 1 "package: $pkg"
@@ -797,9 +743,11 @@ case "$build_type" in
         return
 esac
 
-}
+} #}}}
+
 ### runs the commands that are actually used to build the code
-run_cmd(){
+### calls: rotate
+run_cmd(){ #{{{
 debug 1 "${FUNCNAME[0]}() $@"
 #
 # In:
@@ -906,10 +854,13 @@ if ! $g_current_failed; then
     echo
     nerr "Failed to build $pkg"
 fi #end of prechecks of
-}
+} #}}}
+
+##### functions used in main }}}
 
 
-### distcheck functions
+
+#### distcheck functions {{{
 distcheck(){
 #echo -e "${bold}checking distribution ...${boldoff}"
 debug 1 "${FUNCNAME[0]}()"
@@ -929,6 +880,110 @@ debug 1 "${FUNCNAME[0]}()"
 #dpkg -l check packages
 #ask to install dpkgs
 }
+#### distcheck functions }}}
+
+#### Helper functions {{{
+## OUTPUT
+write_bold(){ tput bold; echo "$@"; tput sgr0; }
+
+msg(){ ${conf[animate]} || echo "$@"; }             #normal mode message - only when not animated
+
+verbose(){ ${conf[verbose]} && echo -e "$@";}       #verbose message
+
+msg_ani(){ ${conf[animate]} && echo "$@"; }         #animation mode message
+
+# print scetion banner
+section(){
+    set -e
+    local fill_symbol="-"
+    local title="$@"
+
+    local width=80
+    local fill=$(( width-${#title} ))
+    local rest=$(( fill % 2 ))
+    fill=$(( fill / 2))
+    #printf "$fill_symbol%.0s" {1..$(( fill + rem ))}  - fuck no
+    for (( n=1 ; n <= fill ; n++ )); do echo -n "$fill_symbol" ; done
+    tput bold
+    echo -n "$title"
+    tput sgr0
+    for (( n=1 ; n <= (fill+rest) ; n++ )); do echo -n "$fill_symbol" ; done
+    echo
+    set +e
+}
+
+print_array(){
+#call: print_array array[@]
+declare -a array=("${!1}")
+for item in "${array[@]}"; do
+    echo "$item"
+done
+}
+
+## ERROR
+err(){ echo; echo -n "Error: "; echo "$@"; }
+#fatal error
+ferr(){ err "$@"; exit 1; }
+#non fatal error
+nerr(){
+debug 1 "${FUNCNAME[0]}() $@"
+g_current_failed=true
+[[ ${conf[on_error]} == "skip" ]] && return
+err "$@"
+case ${conf[on_error]} in
+    exit) exit 1 ;;
+    ask)  local rv="$(ask_to_con)"; [[ "$rv" == "no" ]] && exit 1 ;;
+esac
+}
+
+# ask to continue on error
+ask_to_con(){
+while true; do
+    read -p "The Programm encountered an error - do you want to continue? (y/n) " yn
+    case "$yn" in
+        [Yy]*) echo "yes"; break ;;
+        [Nn]*) echo "no" ; break ;;
+        *) echo "Please answer with yes or no." 1>&2 ;;
+    esac
+done
+}
+
+## helper debuging
+debug(){
+#
+# This function displays debug information
+# when the debug level set via commandline
+# is greater or equal the level passed to
+# the function
+#
+# In:
+# $1 - level
+# $2 - message
+#
+${conf[debug]} || return
+level="$1"; msg="$2"
+if (( level <= ${conf[debug_level]} )); then
+    while read -r line; do
+        echo "debug $level: $line" 1>&2
+    done <<< "$msg"
+fi
+}
+
+debug-x(){ ${conf[debug]} && set -x; }
+debug+x(){ ${conf[debug]} && set +x; }
+
+## debug configuration
+debug_cfg(){
+${conf[debug]} || return
+echo
+debug 4 "current configuration:"
+for item in ${!conf[@]}; do
+    debug 4 "$item=${conf["$item"]}"
+done
+echo
+}
+
+
 
 ### fancy output functions
 ### taken from easy e17.sh - the code ist mostly unreviewed:(
@@ -1026,6 +1081,8 @@ function write_appname ()
 	done
 	echo -n " "
 }
+
+### END HELPER FUNCTIONS }}}
 
 ### programm starts here
 # well it can be done as root

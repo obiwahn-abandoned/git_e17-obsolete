@@ -550,7 +550,9 @@ if [[ "${conf[update]}" == "true" ]]; then
     debug 1 "remote: $remote"
 
     #store old commit
-    local old_commit=$(git -log -1 --format="%H")
+    local old_commit=$(git log -1 --format="%H")
+
+    verbose "If the updates seem sonfusing try to git reset --hard HEAD your repo"
 
     ${conf[animate]} && git pull $remote &>"${conf[build_dir]}/git.log" || conf[current_failed]=true
     ! ${conf[animate]} && { git pull $remote | tee "${conf[build_dir]}/git.log" || nerr "git pull failed"; }
@@ -566,7 +568,7 @@ if [[ "${conf[update]}" == "true" ]]; then
         done <<< "$(git diff --name-only $old_commit)" | sort -u
     )"
 
-    #get the local path of of the packags so the paths can be compared
+    #get the local path of of the packages so the paths can be compared
     debug 1 "building path map"
     local -A path_map
     for pkg in $packages; do
@@ -593,6 +595,9 @@ if ${conf[current_failed]} ; then
 else
     msg_ani "$(write_bold -n "OK")"
 fi
+
+[[ ! $packages ]] && echo "No Packages are selected to be build ... Quitting!" && exit 0
+
 }
 ### set up the enc
 set_env(){
@@ -681,7 +686,7 @@ for pkg in $packages; do
     fi
 done
 
-echo "The following packages failed to build: $packages_failed"
+[[ $packages_failed ]] && echo "The following packages failed to build: $packages_failed"
 }
 ### find the sourcecode of a pacakge
 find_local_path (){

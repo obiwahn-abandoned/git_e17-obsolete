@@ -532,12 +532,14 @@ if [[ "${conf[action]}" == "update" ]]; then
     if [[ $packages ]]; then
         echo "The following packages are not up to date: "
         echo "$packages"
+    else
+        echo "All packages are up to date!"
     fi
 fi
 
 # Got nothing to do?
 if ! [[ $packages ]]; then
-    echo "No Packages are selected to be build ... Quitting!"
+    echo "No Packages are to be build ... Quitting!"
     exit 0
 fi
 } #}}}
@@ -570,6 +572,7 @@ echo "PYTHONINCLUDE=$PYTHONINCLUDE"
 export NOCONFIGURE="true"
 echo "NOCONFIGURE=$NOCONFIGURE"
 
+echo -n  'checking existance of $install_path/share/aclocal $PYTHONPATH $PYTHONINCLUDE ... '
 local failed=false
 for dir in "$install_path/share/aclocal" "$PYTHONPATH" "$PYTHONINCLUDE"; do
     if [[ ! -w "$dir" ]]; then
@@ -584,6 +587,7 @@ for dir in "$install_path/share/aclocal" "$PYTHONPATH" "$PYTHONINCLUDE"; do
 done
 ## TODO ## OUTPUT
 $failed && echo "failed" && exit 1
+echo ok
 } #}}}
 
 ### build
@@ -618,7 +622,7 @@ for pkg in $packages; do
         #compile it!
         compile "$pkg" "$cpath"
         if $g_current_failed; then
-            packages_failed="packages_failed $pkg"
+            packages_failed="$packages_failed $pkg"
             msg_ani "FAILED"
             # in other modes a more detailed report will be given
             ${conf[animate]} && nerr "Failed to build $pkg"
@@ -810,7 +814,7 @@ if ! $g_current_failed; then
             g_current_failed=true
         else
             #check log for errors
-            if tail -n 20 "$log_file" | grep -s -i error ; then
+            if tail -n 20 "$log_file" | grep -s -i error &> /dev/null; then
                 g_current_failed=true
             fi
         fi
@@ -857,8 +861,6 @@ fi #end of prechecks of
 } #}}}
 
 ##### functions used in main }}}
-
-
 
 #### distcheck functions {{{
 distcheck(){

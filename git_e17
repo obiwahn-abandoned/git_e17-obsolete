@@ -33,13 +33,15 @@ declare -A conf
 packages=""
 packages_failed=""
 
+# signales return status of some operations as
+# we lack proper return values
+g_current_failed=false
+
 conf[dev]=false
 conf[verbose]=false
 conf[debug]=false
 conf[debug_level]=10
 conf[animate]=false
-
-g_current_failed=false
 
 #for use in errors
 e="\n       "
@@ -167,15 +169,18 @@ git_e17 - simple script for building enlightenment 17
 git-e17 [options] action [only <packagelist>]
 
 actions:
+    usage
+        give full instructions on how to use this script
     build
         build everything
     update
         like build but will build only packages
         with changes and those with status failed
+        ATTENTION: do not confuse with --update option
     fromscratch
         delete e17 installation and build e17 from scratch
-        ATTENENTION: this will rm -fr $install_path
-                     do not do is if you installed to /usr/local
+        ATTENTION: this will rm -fr $install_path
+                   do not do is if you installed to /usr/local
     list
         list all available packages (TODO with description)
 only:
@@ -298,6 +303,7 @@ do
         --dev-help)
             echo ""
             help
+            devhelp
             exit 0
             ;;
         *) #no more options beakb
@@ -366,7 +372,7 @@ done <<< "$(grep -v ^# "$HOME/.git_e17" | grep -v ^$ )"
 
 debug 2 "The build dir must be set by now!! build_dir=${conf[build_dir]}"
 [[ ! ${conf[build_dir]} ]] && \
-    ferr "build_dir not set:( - please set it via commandline or ~/.git_e17"
+    ferr "build_dir is not set:(${e}please set it via commandline or ~/.git_e17"
 #remove trailing slash from build_dir
 conf[build_dir]=${conf[build_dir]%/}
 debug 2 "build dir set to ${conf[build_dir]}"
@@ -459,12 +465,6 @@ conf[packagelist]="${conf[packagelist]:-"full"}"
 conf[on_error]="${conf[on_error]:-"ask"}"
 conf[nice]="${conf[nice]:-"19"}"
 
-#conf[build_dir]=""   # not given here so it can be read from
-#conf[config_file]="" # command line or ~/.git_e17
-#conf[packagelist]="" #
-#conf[on_error]=""    #
-#conf[nice]=""        #
-
 if [[ ! $packages ]]; then
     case "${conf[packagelist]}" in
         full)  packages="$packages_full"  ;;
@@ -547,22 +547,22 @@ if [[ -n "$branch" && "$branch" != "$cbranch" ]]; then
     fi
 fi
 
-#update
+local old_commit=$(git log -1 --format="%H")
+
+# -u option
 if [[ "${conf[update]}" == "true" ]]; then
     debug 1 "remote: $remote"
 
     #store old commit
-    local old_commit=$(git log -1 --format="%H")
 
     verbose "If the updates seem sonfusing try to git reset --hard HEAD your repo"
 
     ${conf[animate]} && git pull $remote &>"${conf[build_dir]}/git.log" || g_current_failed=true
     ! ${conf[animate]} && { git pull $remote | tee "${conf[build_dir]}/git.log" || nerr "git pull failed"; }
+fi
 
-    #TODO
-    #if updatelog contains already up tp date
-    #we have nothing to do:P
-
+# action update
+if [[ "${conf[action]}" == "update" ]]; then
     debug 1 "getting paths where files changed"
     local new_files="$(
         while read -r line; do
@@ -598,6 +598,7 @@ else
     msg_ani "$(write_bold -n "OK")"
 fi
 
+# Got nothing to do?
 [[ ! $packages ]] && echo "No Packages are selected to be build ... Quitting!" && exit 0
 
 }

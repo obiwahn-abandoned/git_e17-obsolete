@@ -39,6 +39,8 @@ conf[debug]=false
 conf[debug_level]=10
 conf[animate]=false
 
+g_current_failed=false
+
 #for use in errors
 e="\n       "
 
@@ -141,7 +143,7 @@ ferr(){ err "$@"; exit 1; }
 #non fatal error
 nerr(){
 debug 1 "${FUNCNAME[0]}() $@"
-conf[current_failed]=true
+g_current_failed=true
 [[ ${conf[on_error]} == "skip" ]] && return
 err "$@"
 case ${conf[on_error]} in
@@ -518,7 +520,7 @@ debug 1 "${FUNCNAME[0]}()"
 
 write_bold -n "getting source ... "
 msg ""
-conf[current_failed]=false
+g_current_failed=false
 local src_path="${conf[src_path]}"
 local git="${conf[git_repo]}"
 local branch="${conf[branch]}"
@@ -554,7 +556,7 @@ if [[ "${conf[update]}" == "true" ]]; then
 
     verbose "If the updates seem sonfusing try to git reset --hard HEAD your repo"
 
-    ${conf[animate]} && git pull $remote &>"${conf[build_dir]}/git.log" || conf[current_failed]=true
+    ${conf[animate]} && git pull $remote &>"${conf[build_dir]}/git.log" || g_current_failed=true
     ! ${conf[animate]} && { git pull $remote | tee "${conf[build_dir]}/git.log" || nerr "git pull failed"; }
 
     #TODO
@@ -589,7 +591,7 @@ if [[ "${conf[update]}" == "true" ]]; then
 fi
 
 #animation crap - i'll rip it out ## TODO put this in a function with configurable text
-if ${conf[current_failed]} ; then
+if $g_current_failed ; then
     msg_ani "$(write_bold -n "FAILED")"
     ${conf[animate]} && nerr "Error Updating or Getting source"
 else
@@ -660,7 +662,7 @@ for pkg in $packages; do
 
     #initialize vars
     debug 2 "init vars"
-    conf[current_failed]=false
+    g_current_failed=false
     conf[current_package_path]=""
 
     #find src
@@ -675,7 +677,7 @@ for pkg in $packages; do
         ${conf[animate]} && write_appname "$pkg"
         #compile it!
         compile "$pkg" "$cpath"
-        if ${conf[current_failed]}; then
+        if $g_current_failed; then
             packages_failed="packages_failed $pkg"
             msg_ani "FAILED"
             # in other modes a more detailed report will be given
@@ -739,7 +741,7 @@ debug 1 "package: $pkg"
 local src_path="${conf[src_path]}/trunk/$2"
 debug 1 "srcpath: $src_path"
 local obj_path="${conf[object_path]}/$1"
-conf[current_failed]=false
+g_current_failed=false
 local log_file="${conf[log_path]}/$pkg.log"
 
 #delete old log file
@@ -777,24 +779,24 @@ case "$build_type" in
         run_cmd "$pkg" "$src_path" "$obj_path" "perlmake" "perl $src_path/Makefile.PL prefix=$install_path"
         ;;&
     autogen|bootstrap) #configure
-        ${conf[current_failed]} || run_cmd "$pkg" "$src_path" "$obj_path" "configure" "$src_path/configure --prefix=$install_path $pgk_conf_args"
+        $g_current_failed || run_cmd "$pkg" "$src_path" "$obj_path" "configure" "$src_path/configure --prefix=$install_path $pgk_conf_args"
         ;;&
     autogen|bootstrap|perl) # make && make install
-		${conf[current_failed]} || run_cmd "$pkg" "$src_path" "$obj_path" "make" "make -j ${conf[threads]}"
-		${conf[current_failed]} || run_cmd "$pkg" "$src_path" "$obj_path" "install" "make install"
+		$g_current_failed || run_cmd "$pkg" "$src_path" "$obj_path" "make" "make -j ${conf[threads]}"
+		$g_current_failed || run_cmd "$pkg" "$src_path" "$obj_path" "install" "make install"
         ;;
     make) # make && make install
 		run_cmd "$pkg" "$src_path" "" "make" "$make_extra make -j ${conf[threads]}"
-		${conf[current_failed]} || run_cmd "$pkg" "$src_path" "" "install" "make install"
+		$g_current_failed || run_cmd "$pkg" "$src_path" "" "install" "make install"
         ;;
     python)
 		run_cmd "$pkg" "$src_path" "" "setup.py-build" "python setup.py build build_ext --include-dirs=$PYTHONINCLUDE $pkg_conf_args"
-		${conf[current_failed]} || run_cmd "$pkg" "$src_path" "" "setip-py-install" "python setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
+		$g_current_failed || run_cmd "$pkg" "$src_path" "" "setip-py-install" "python setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
         ;;
     *)
         msg echo "no build system found"
         msg_ani -n " (no build system) - "
-        conf[current_failed]=true
+        g_current_failed=true
         return
 esac
 
@@ -811,7 +813,7 @@ debug 1 "${FUNCNAME[0]}() $@"
 # $@ - the command to be run
 #
 # Out:
-# compiles the code and sets conf[current_failed] in case of failure
+# compiles the code and sets g_current_failed in case of failure
 #
 # FUNCTION NEEDS TO BE REWRITTEN - it is UGLY and STUIP
 # a better way than writing $@ to call the command would be nice
@@ -838,7 +840,7 @@ fi
 if [[ ${tilte%% *} == make ]]; then
     if ! [[ -e Makefile || -e makefile ]]; then
     #TODO - elif check source dir and cd into it
-        conf[current_failed]=true
+        g_current_failed=true
         ${conf[animate]} && return
         msg "Failed"
         nerr "No makefile - failed to build $pkg"
@@ -849,7 +851,7 @@ log_file="${conf[log_path]}/$pkg.log"
 debug 1 "running in path: $(pwd)"
 
 #run only if pre checks did not fail
-if ! ${conf[current_failed]}; then
+if ! $g_current_failed; then
     #if animation mode is used
     if ${conf[animate]}; then
         #call
@@ -860,11 +862,11 @@ if ! ${conf[current_failed]}; then
         ( rotate "$pid" "${title}: " "$log_file" ) &
         #wait for command to finish and check exit status
         if ! wait $pid; then
-            conf[current_failed]=true
+            g_current_failed=true
         else
             #check log for errors
             if tail -n 20 "$log_file" | grep -s -i error ; then
-                conf[current_failed]=true
+                g_current_failed=true
             fi
         fi
         #wait for animation - is that necessary?
@@ -877,10 +879,10 @@ if ! ${conf[current_failed]}; then
         msg -n "  - $title ... "
         verbose "running: nice -n ${conf[nice]} $@ 2>&1 | tee $log_file"
         if ! nice -n "${conf[nice]}" $@ 2>&1 | tee -a "$log_file"; then
-            conf[current_failed]=true
+            g_current_failed=true
         else
             if tail -n 20 "$log_file" | grep -s -i error ; then
-                conf[current_failed]=true
+                g_current_failed=true
             else
                 msg "OK"
                 return
@@ -891,10 +893,10 @@ if ! ${conf[current_failed]}; then
         msg -n "  - $title ... "
         verbose "running: nice -n ${conf[nice]} $@ &>$log_file"
         if ! nice -n "${conf[nice]}" $@ &>"$log_file"; then
-                conf[current_failed]=true
+                g_current_failed=true
         else
             if tail -n 20 "$log_file" | grep -s -i error ; then
-                conf[current_failed]=true
+                g_current_failed=true
             else
                 msg "OK"
                 return

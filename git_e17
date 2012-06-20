@@ -29,7 +29,8 @@ packages_half="$efl_basic $bin_basic $e_themes $e_modules_efl $e_modules_bin $e_
 packages_full="$efl_basic $bin_basic $e_themes $e_modules_efl $e_modules_bin $e_modules_extra $efl_extra $bin_extra"
 
 declare -A conf
-declare -a packages_want
+
+packages=""
 packages_failed=""
 
 conf[dev]=false
@@ -315,7 +316,7 @@ fi
 
 if [[ "$1" == only ]]; then
     shift
-    packages_want=($@)
+    packages="$@"
 fi
 
 debug_cfg
@@ -462,11 +463,11 @@ conf[nice]="${conf[nice]:-"19"}"
 #conf[on_error]=""    #
 #conf[nice]=""        #
 
-if [[ ! $packages_want ]]; then
+if [[ ! $packages ]]; then
     case "${conf[packagelist]}" in
-        full)  packages_want=($packages_full)  ;;
-        half)  packages_want=($packages_half)  ;;
-        basic) packages_want=($packages_basic) ;;
+        full)  packages="$packages_full"  ;;
+        half)  packages="$packages_half"  ;;
+        basic) packages="$packages_basic" ;;
         *)     ferr "No valid package list packagelist=full|half|basic" ;;
     esac
 fi
@@ -546,22 +547,29 @@ fi
 
 #update
 if [[ "${conf[update]}" == "true" ]]; then
-    #TODO - check status
     debug 1 "remote: $remote"
+
+    #store old commit
+    local old_commit=$(git -log -1 --format="%H")
 
     ${conf[animate]} && git pull $remote &>"${conf[build_dir]}/git.log" || conf[current_failed]=true
     ! ${conf[animate]} && { git pull $remote | tee "${conf[build_dir]}/git.log" || nerr "git pull failed"; }
 
+    #TODO
     #if updatelog contains already up tp date
     #we have nothing to do:P
 
-    #get changed
-    debug 1 "getting diff"
-    local new_files="$(git diff --name-only HEAD@{1}..HEAD)"
+    debug 1 "getting paths where files changed"
+    local new_files="$(
+        while read -r line; do
+            echo "${line%/*}/"
+        done <<< "$(git diff --name-only $old_commit)" | sort -u
+    )"
+
     #get the local path of of the packags so the paths can be compared
     debug 1 "building path map"
     local -A path_map
-    for pkg in "${packages_want[@]}"; do
+    for pkg in $packages; do
         find_local_path "$pkg"
         local path="${conf[current_package_path]}"
         path=${path##"$src_path"}
@@ -569,11 +577,10 @@ if [[ "${conf[update]}" == "true" ]]; then
         path_map["$pkg"]="$path"
     done
 
-    packages_want=( )
+    packages=""
     for pkg in "${!path_map[@]}"; do
-        if grep -s "${path_map[$pkg]}" <<< "$new_files" &>/dev/null; then
-            #not usign +=( new ) because that reverses the order
-            packages_want[${#packages_want[*]}]="$pkg"
+        if grep -s "${path_map[$pkg]}/" <<< "$new_files" &>/dev/null; then
+            packages="$packages $pkg"
         fi
 
     done
@@ -641,7 +648,9 @@ debug 1 "${FUNCNAME[0]}() $@"
 #
 # This functions should find the
 #
-for pkg in "${packages_want[@]}"; do
+debug 1 "PACKAGES: $packages"
+msg "The following packages will be build: $packages"
+for pkg in $packages; do
     msg "- trying to build $pkg ..."
 
     #initialize vars
@@ -662,6 +671,7 @@ for pkg in "${packages_want[@]}"; do
         #compile it!
         compile "$pkg" "$cpath"
         if ${conf[current_failed]}; then
+            packages_failed="packages_failed $pkg"
             msg_ani "FAILED"
             # in other modes a more detailed report will be given
             ${conf[animate]} && nerr "Failed to build $pkg"
@@ -670,6 +680,8 @@ for pkg in "${packages_want[@]}"; do
         fi
     fi
 done
+
+echo "The following packages failed to build: $packages_failed"
 }
 ### find the sourcecode of a pacakge
 find_local_path (){

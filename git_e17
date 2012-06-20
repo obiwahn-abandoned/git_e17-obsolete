@@ -30,8 +30,7 @@ packages_full="$efl_basic $bin_basic $e_themes $e_modules_efl $e_modules_bin $e_
 
 declare -A conf
 declare -a packages_want
-declare -A packages_result
-declare -a packages_failed_since_update
+packages_failed=""
 
 conf[dev]=false
 conf[verbose]=false
@@ -67,10 +66,7 @@ check_cfg
 msg_ani "$(write_bold -n " OK")"
 
 ##
-write_bold -n "getting source ..."
-msg ""
 get_src
-msg_ani "$(write_bold -n " OK")"
 
 write_bold "starting to build ..."
 set_env
@@ -117,80 +113,39 @@ for item in "${array[@]}"; do
 done
 }
 
-debug-x(){
-${conf[debug]} && set -x
-}
+debug-x(){ ${conf[debug]} && set -x; }
+debug+x(){ ${conf[debug]} && set +x; }
 
-debug+x(){
-${conf[debug]} && set +x
-}
 ## helper output
-verbose(){
-${conf[verbose]} && echo -e "$@"
-}
-
-write_bold(){
-tput bold
-echo "$@"
-tput sgr0
-}
-
-msg(){
-${conf[animate]} || echo "$@"
-}
-
-msg_ani(){
-${conf[animate]} && echo "$@"
-}
+write_bold(){ tput bold; echo "$@"; tput sgr0; }
+msg(){ ${conf[animate]} || echo "$@"; }             #normal mode message - only when not animated
+verbose(){ ${conf[verbose]} && echo -e "$@";}       #verbose message
+msg_ani(){ ${conf[animate]} && echo "$@"; }         #animation mode message
 
 ask_to_con(){
-    while true; do
-        read -p "The Programm encountered an error - do you want to continue? (y/n) " yn
-        case "$yn" in
-            [Yy]*)
-                echo "yes"
-                break
-                ;;
-            [Nn]*)
-                echo "no";
-                break
-                ;;
-            *)
-                echo "Please answer with yes or no." 1>&2
-                ;;
-        esac
-    done
-
+while true; do
+    read -p "The Programm encountered an error - do you want to continue? (y/n) " yn
+    case "$yn" in
+        [Yy]*) echo "yes"; break ;;
+        [Nn]*) echo "no" ; break ;;
+        *) echo "Please answer with yes or no." 1>&2 ;;
+    esac
+done
 }
-## helper error
+## helper for error
 #error
-err(){
-echo
-echo -n "Error: "
-echo "$@"
-}
+err(){ echo; echo -n "Error: "; echo "$@"; }
 #fatal error
-ferr(){
-    err "$@"
-    exit 1
-}
+ferr(){ err "$@"; exit 1; }
 #non fatal error
 nerr(){
 debug 1 "${FUNCNAME[0]}() $@"
 conf[current_failed]=true
-${conf[animate]} && [[ ${conf[on_error]} == "skip" ]] && return
+[[ ${conf[on_error]} == "skip" ]] && return
 err "$@"
 case ${conf[on_error]} in
-    exit)
-        exit 1
-        ;;
-    ask)
-        local rv="$(ask_to_con)"
-        [[ "$rv" == "no" ]] && exit 1
-        ;;&
-    *) #skip
-        return
-        ;;
+    exit) exit 1 ;;
+    ask)  local rv="$(ask_to_con)"; [[ "$rv" == "no" ]] && exit 1 ;;
 esac
 }
 
@@ -233,8 +188,9 @@ options:
         be set in ~/.git_e17
     -u | --update
         pull changes into branch - (git pull)
-    -v | --verbose
-        be verbose
+    -s | --skip-errors
+        skip non fatal errors
+    -a | --animate
 EOF
 }
 devhelp(){
@@ -262,6 +218,7 @@ extra options:
         more verbse make (V=1)
     --conf_args
         extra configure args - for all packages
+    -v | --verbose
     -d | --debug
         enable script debugging mode
 EOF
@@ -304,6 +261,10 @@ do
             ;;
         -u|--update)
             conf[update]=true
+            shift
+            ;;
+        -s|--skip-errors)
+            conf[on_error]=skip
             shift
             ;;
         -a|--animate)
@@ -496,7 +457,7 @@ conf[on_error]="${conf[on_error]:-"ask"}"
 conf[nice]="${conf[nice]:-"19"}"
 
 #conf[build_dir]=""   # not given here so it can be read from
-#conf[config_file]="" # commandline or ~/.git_e17
+#conf[config_file]="" # command line or ~/.git_e17
 #conf[packagelist]="" #
 #conf[on_error]=""    #
 #conf[nice]=""        #
@@ -511,7 +472,7 @@ if [[ ! $packages_want ]]; then
 fi
 
 }
-### check for missing options and unwriteable paths
+### check for missing options and unwritable paths
 check_cfg(){
 debug 1 "${FUNCNAME[0]}()"
 #
@@ -550,9 +511,13 @@ for key in ${!conf[@]}; do
 done
 debug_cfg
 }
-### functions that scan source code and seltect packages to bue build
+### functions that scan source code and select packages to be build
 get_src(){
 debug 1 "${FUNCNAME[0]}()"
+
+write_bold -n "getting source ... "
+msg ""
+conf[current_failed]=false
 local src_path="${conf[src_path]}"
 local git="${conf[git_repo]}"
 local branch="${conf[branch]}"
@@ -561,7 +526,7 @@ local remote="${conf[remote]}"
 #does the repo exist
 if [[ ! -d ${conf[src_path]} ]]; then
     #create it
-    git clone "${conf[git_repo]}" "$src_path"
+    git clone "${conf[git_repo]}" "$src_path" || ferr "unable to clone repository"
 fi
 
 #change to repo
@@ -583,9 +548,43 @@ fi
 if [[ "${conf[update]}" == "true" ]]; then
     #TODO - check status
     debug 1 "remote: $remote"
-    if ! git pull $remote | tee "${conf[build_dir]}/git.log"; then
-        nerr "git pull failed"
-    fi
+
+    ${conf[animate]} && git pull $remote &>"${conf[build_dir]}/git.log" || conf[current_failed]=true
+    ! ${conf[animate]} && { git pull $remote | tee "${conf[build_dir]}/git.log" || nerr "git pull failed"; }
+
+    #if updatelog contains already up tp date
+    #we have nothing to do:P
+
+    #get changed
+    debug 1 "getting diff"
+    local new_files="$(git diff --name-only HEAD@{1}..HEAD)"
+    #get the local path of of the packags so the paths can be compared
+    debug 1 "building path map"
+    local -A path_map
+    for pkg in "${packages_want[@]}"; do
+        find_local_path "$pkg"
+        local path="${conf[current_package_path]}"
+        path=${path##"$src_path"}
+        debug 3 "map $pkg: $path"
+        path_map["$pkg"]="$path"
+    done
+
+    packages_want=( )
+    for pkg in "${!path_map[@]}"; do
+        if grep -s "${path_map[$pkg]}" <<< "$new_files" &>/dev/null; then
+            #not usign +=( new ) because that reverses the order
+            packages_want[${#packages_want[*]}]="$pkg"
+        fi
+
+    done
+fi
+
+#animation crap - i'll rip it out ## TODO put this in a function with configurable text
+if ${conf[current_failed]} ; then
+    msg_ani "$(write_bold -n "FAILED")"
+    ${conf[animate]} && nerr "Error Updating or Getting source"
+else
+    msg_ani "$(write_bold -n "OK")"
 fi
 }
 ### set up the enc
@@ -662,7 +661,13 @@ for pkg in "${packages_want[@]}"; do
         ${conf[animate]} && write_appname "$pkg"
         #compile it!
         compile "$pkg" "$cpath"
-        ${conf[current_failed]} && msg_ani "FAILED" || msg_ani "OK"
+        if ${conf[current_failed]}; then
+            msg_ani "FAILED"
+            # in other modes a more detailed report will be given
+            ${conf[animate]} && nerr "Failed to build $pkg"
+        else
+            msg_ani "OK"
+        fi
     fi
 done
 }
@@ -678,8 +683,6 @@ debug 1 "${FUNCNAME[0]}() $@"
 # Out:
 # sets: conf[current_package_path]
 #
-msg -n "  - finding local path ..."
-
 local name=$1
 local path=""
 local src_path="${conf[src_path]}/trunk"
@@ -692,9 +695,9 @@ done
 prune=${prune#-o}
 
 #use find to get possible dirs
-debug-x
+#debug-x
 dirs="$(find "$src_path" -maxdepth 3 -type d \( $prune \) -prune -o -type d -name "$name" -printf "%P\n" )"
-debug+x
+#debug+x
 debug 2 "$dirs"
 
 #pick the one with the sortest path
@@ -709,8 +712,6 @@ debug 1 "path selected for $pkg: $src_path/${conf[current_package_path]}"
 
 if [[ -z "${conf[current_package_path]}" ]] ; then
     nerr "Source path for $pkg was not found!"
-else
-    msg "OK"
 fi
 }
 ### sets up parameters and calls run_cmd
@@ -775,7 +776,7 @@ case "$build_type" in
         ;;
     *)
         msg echo "no build system found"
-        msg_ani  " (no build system) - "
+        msg_ani -n " (no build system) - "
         conf[current_failed]=true
         return
 esac
@@ -830,7 +831,7 @@ fi
 log_file="${conf[log_path]}/$pkg.log"
 debug 1 "running in path: $(pwd)"
 
-#run only if prechecks did not fail
+#run only if pre checks did not fail
 if ! ${conf[current_failed]}; then
     #if animation mode is used
     if ${conf[animate]}; then
@@ -849,7 +850,7 @@ if ! ${conf[current_failed]}; then
                 conf[current_failed]=true
             fi
         fi
-        #wait for annimation - is that necessary?
+        #wait for animation - is that necessary?
         wait
         # success
         #return here and now do not go any further - HACK!!!
@@ -915,7 +916,7 @@ debug 1 "${FUNCNAME[0]}()"
 
 ### fancy output functions
 ### taken from easy e17.sh - the code ist mostly unreviewed:(
-## TODO - rewrite -- all of them :)
+## TODO - rewrite - some of them
 del_word(){
 cnt=0
 max=${#1}

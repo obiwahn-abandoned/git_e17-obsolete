@@ -1,0 +1,36 @@
+git_e17 - The enlightenment install script
+
+This Scripts is based on Mornlenxus' easy_e17.sh
+It shares some of it's ideas as well as some code.
+The original script can be found at:
+http://omicron.homeip.net/projects/#easy_e17.sh
+
+Licebse: BSD licence
+Get the lastes version at: https://github.com/ObiWahn/git_e17
+Coded by Jan Christoph Uhde (linux@obiwahn.org)
+
+
+Usage examples:
+
+./git_e17 -s -a build 
+    Get and build the whole window manager in animation mode
+    and skip non fatal errors.
+
+./git_e17 update
+    Build packages that failed in the past and those which
+    contain files that differ from HEAD.
+
+./git_e17 --pull update
+    Pull sources from the e17 git repository and build only packages
+    that have failed in the past or which contain files that differ from
+    pre-pull commit.
+
+./git build only eina evas
+    build only eina and evas show parts of the build log on errors and
+    ask what to do when an error is encountered
+
+./git_e17 --build-dir /path/to/alternate/build/dir --pull --remote raster --branch terminology update only terminology
+or
+./git -conf raster_term update .oO(i would create a separate config:P)
+
+

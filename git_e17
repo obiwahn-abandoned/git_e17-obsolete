@@ -176,7 +176,7 @@ actions:
     update
         like build but will build only packages
         with changes and those with status failed
-        ATTENTION: do not confuse with --update option
+        ATTENTION: does not update from server: see --pull
     fromscratch
         delete e17 installation and build e17 from scratch
         ATTENTION: this will rm -fr $install_path
@@ -194,8 +194,8 @@ options:
         workdir for this script. It will contain the source, config and log
         files and dirs in which e17 is build. The default build_dir sould
         be set in ~/.git_e17
-    -u | --update
-        pull changes into branch - (git pull)
+    -p | --pull | --source-update
+        pull changes from server
     -s | --skip-errors
         skip non fatal errors
     -a | --animate
@@ -267,8 +267,8 @@ do
             debug 1 "remote: ${conf[remote]}"
             shift 3
             ;;
-        -u|--update)
-            conf[update]=true
+        -p|--pull|--source-update)
+            conf[pull]=true
             shift
             ;;
         -s|--skip-errors)
@@ -415,8 +415,6 @@ packetlist=full
 #branch=master
 # remote to pull from
 #remote=origin master
-# always update
-#update=true
 
 # on on compile error action: ask,exit,continue
 on_error=skip
@@ -550,7 +548,7 @@ fi
 local old_commit=$(git log -1 --format="%H")
 
 # -u option
-if [[ "${conf[update]}" == "true" ]]; then
+if [[ "${conf[pull]}" == "true" ]]; then
     debug 1 "remote: $remote"
 
     #store old commit

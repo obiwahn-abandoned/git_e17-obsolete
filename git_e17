@@ -3,7 +3,7 @@
 # To Inspect the code use vim, modelines and folds!!!!
 
 #########################################################################
-# This Scripts is based on Mornlenxus' easy_e17.sh                      #
+# This Scripts is based on Morlenxus' easy_e17.sh                       #
 # It shares some of it's ideas as well as some code.                    #
 # The original script can be found at:                                  #
 # http://omicron.homeip.net/projects/#easy_e17.sh                       #
@@ -529,14 +529,16 @@ if [[ ! -d ${conf[src_path]} ]]; then
     #create it
     git clone "${conf[git_repo]}" "$src_path" || ferr "unable to clone repository"
 fi
-
 #change to repo
 cd "$src_path" || exit 2
 
-#get current branch
+#get name of branch
 local cbranch="$(git symbolic-ref HEAD)"
 cbranch=${cbranch##*/}
 debug 1 "current branch: $cbranch"
+
+#get hash of current HEAD
+local current_commit=$(git log -1 --format="%H")
 
 #select right branch
 if [[ -n "$branch" && "$branch" != "$cbranch" ]]; then
@@ -545,16 +547,10 @@ if [[ -n "$branch" && "$branch" != "$cbranch" ]]; then
     fi
 fi
 
-local old_commit=$(git log -1 --format="%H")
-
-# -u option
+# -pull option
 if [[ "${conf[pull]}" == "true" ]]; then
     debug 1 "remote: $remote"
-
-    #store old commit
-
     verbose "If the updates seem sonfusing try to git reset --hard HEAD your repo"
-
     ${conf[animate]} && git pull $remote &>"${conf[build_dir]}/git.log" || g_current_failed=true
     ! ${conf[animate]} && { git pull $remote | tee "${conf[build_dir]}/git.log" || nerr "git pull failed"; }
 fi
@@ -565,7 +561,7 @@ if [[ "${conf[action]}" == "update" ]]; then
     local new_files="$(
         while read -r line; do
             echo "${line%/*}/"
-        done <<< "$(git diff --name-only $old_commit)" | sort -u
+        done <<< "$(git diff --name-only $current_commit)" | sort -u
     )"
 
     #get the local path of of the packages so the paths can be compared
@@ -579,13 +575,15 @@ if [[ "${conf[action]}" == "update" ]]; then
         path_map["$pkg"]="$path"
     done
 
-    packages=""
-    for pkg in "${!path_map[@]}"; do
-        if grep -s "${path_map[$pkg]}/" <<< "$new_files" &>/dev/null; then
-            packages="$packages $pkg"
+    packages_new=""
+    for pkg in $packages; do
+        if [[ "${path_map[$pkg]}" ]]; then
+            if grep -s "${path_map[$pkg]}/" <<< "$new_files" &>/dev/null; then
+                packages_new="$packages $pkg"
+            fi
         fi
-
     done
+    packages="$packages_new"
 fi
 
 #animation crap - i'll rip it out ## TODO put this in a function with configurable text

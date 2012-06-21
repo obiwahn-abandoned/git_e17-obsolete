@@ -5,8 +5,8 @@ It shares some of it's ideas as well as some code.
 The original script can be found at:
 http://omicron.homeip.net/projects/#easy_e17.sh
 
-Licebse: BSD licence
-Get the lastes version at: https://github.com/ObiWahn/git_e17
+License: BSD licence
+Get the latest version at: https://github.com/ObiWahn/git_e17
 Coded by Jan Christoph Uhde (linux@obiwahn.org)
 
 
@@ -19,7 +19,7 @@ Usage examples:
 ./git_e17 update
     Get the latest version
 
-    This uses --fetch-reset-hard so it will whipe you changes!!!!
+    This uses --fetch-reset-hard so it will wipe you changes!!!!
 
 ./git_e17 devupdate
     update only files that changed but are not in you index

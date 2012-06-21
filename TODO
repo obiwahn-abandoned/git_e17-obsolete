@@ -1,7 +1,8 @@
 TODO
+- ignore files that are created by build process
 - test and fix: action update && --pull and --fetch  options
 - clean / distclean
-- mangement of failed packages
+- management of failed packages
 - usage
 
 - distchecks

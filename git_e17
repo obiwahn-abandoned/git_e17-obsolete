@@ -57,7 +57,7 @@ debug 1 "${FUNCNAME[0]}()"
 
 section " reading commandline options "
 get_opts "$@"
-get_build_dir_from_global_cfg
+get_git_e17_path_from_global_cfg
 section " reading local configuration options "
 read_local_cfg
 section " reading global cfg options "
@@ -70,16 +70,6 @@ set_env
 build
 }
 #### end main function }}}
-
-### new code
-inter_lists(){
-    #FIXME
-    echo "intersection of 2 lists"
-}
-echo_long(){
-    #FIXME
-    echo "this is al long string"
-}
 
 ##### functions used in main {{{
 ### display help - help(), devhelp() {{{
@@ -100,9 +90,8 @@ actions:
     build
         build everything
     update
-        like build but will build only packages
-        with changes and those with status failed
-        ATTENTION: does not update from server: see --pull
+        update your e17 to the latest version
+        (git_e17 --animate --skip-errors --remote origin --fetch-reset-hard devupdate)
     fromscratch
         delete e17 installation and build e17 from scratch
         ATTENTION: this will rm -fr $install_path
@@ -118,10 +107,8 @@ options:
             developer help will give you some more options
     --build-dir
         workdir for this script. It will contain the source, config and log
-        files and dirs in which e17 is build. The default build_dir sould
+        files and dirs in which e17 is build. The default git_e17_path sould
         be set in ~/.git_e17
-    -p | --pull | --source-update
-        pull changes from server
     -s | --skip-errors
         skip non fatal errors
     -a | --animate
@@ -135,17 +122,24 @@ debug 1 "${FUNCNAME[0]}()"
 cat << EOF
 
 extra actions:
-    clean[build|update]
-        is the same as --clean build
+    devupdate
+        TODO
 
 extra options:
-    -c | --conf <conf>
+    --conf <conf>
         config file - especially useful if you want multiple installs
         ONLY CONF NAME - NO FULL PATHS!!!
     -b | --branch <branch>
         branch, tag or commit to use
-    -r | --remote <remote> <branch>
-        select remote branch to pull (git pull remote branch)
+    -r | --remote <remote>
+        select remote branch to pull/fetch
+    -p | --pull
+        does a git pull --no-commit
+    -f | --fetch-reset-hard
+        ATTENTION: this will delete your local changes!!!!
+        fetchs update from remote finds out your current branch
+        and will do a git reset --hard remote/currentbrach
+
     --clean / --distclean
         make clean / distclean before building
     --vmake
@@ -177,8 +171,8 @@ debug 1 "${FUNCNAME[0]}()"
 while :
 do
     case $1 in
-        --build-path)
-            conf[build_path]="$2"
+        --git-e17-path)
+            conf[git_e17_path]="$2"
             echo "found option: --build-path = $2"
             ;;
         -c|--conf)
@@ -196,9 +190,14 @@ do
             echo "found option: --remote = $2"
             shift 2
             ;;
-        -p|--pull|--source-update)
+        -p|--pull)
             conf[pull]=true
             echo "found option: --pull"
+            shift
+            ;;
+        -f|--fetch-reset-hard)
+            conf[fetch]=true
+            echo "found option: --fetch-reset-hard"
             shift
             ;;
         -s|--skip-errors)
@@ -265,8 +264,8 @@ fi
 debug_cfg
 } #}}}
 
-### get build_dir form ~/.git_e17 || create the file
-get_build_dir_from_global_cfg(){ #{{{
+### get git_e17_path form ~/.git_e17 || create the file
+get_git_e17_path_from_global_cfg(){ #{{{
 debug 1 "${FUNCNAME[0]}()"
 #
 # Read parts of the gobal config
@@ -275,9 +274,9 @@ debug 1 "${FUNCNAME[0]}()"
 #   items are read when they are not set by commandline
 #
 # Out:
-#   sets: conf[build_dir], conf[config_file]
+#   sets: conf[git_e17_path], conf[config_file]
 #
-debug 1 "build dir: $1"
+debug 1 "git e17 path: $1"
 if [[ ! -f $HOME/.git_e17 ]]; then
     cat > "$HOME/.git_e17" << EOF
 # git_e17 - global configuration file
@@ -286,48 +285,48 @@ if [[ ! -f $HOME/.git_e17 ]]; then
 # - local configurations and commandline options override this file
 # - lines starting with # are ignored
 # - make sure your user has write access to all choosen paths
-# - you are able to set the path outside the build dir
+# - you are able to set the path outside the git e17 path
 
 # item=val - NO SPACES - NO QUOTES
 
-# default build_dir
-build_dir=${conf[build_dir]%/}
+# default git_e17_path
+git_e17_path=${conf[git_e17_path]%/}
 # default config file
 config_file=default.conf
 EOF
-    if [[ ! ${conf[build_dir]} ]]; then
-        echo -e "\nPlease edit your fresh created ~/.git_e17\nand add the path to the default build dir."
+    if [[ ! ${conf[git_e17_path]} ]]; then
+        echo -e "\nPlease edit your fresh created ~/.git_e17\nand add the path to the default git e17 path."
     fi
 fi
 
 while IFS='=' read -r item value; do
-    if [[ "$item" == @(build_dir|config_file) ]]; then
+    if [[ "$item" == @(git_e17_path|config_file) ]]; then
         conf["$item"]=${conf["$item"]:-"$value"}
         debug 3 "conf[$item]=$value"
     fi
 done <<< "$(grep -v ^# "$HOME/.git_e17" | grep -v ^$ )"
 
-debug 2 "The build dir must be set by now!! build_dir=${conf[build_dir]}"
-[[ ! ${conf[build_dir]} ]] && \
-    ferr "build_dir is not set:(${e}please set it via commandline or ~/.git_e17"
-#remove trailing slash from build_dir
-conf[build_dir]=${conf[build_dir]%/}
-debug 2 "build dir set to ${conf[build_dir]}"
+debug 2 "The git e17 path must be set by now!! git_e17_path=${conf[git_e17_path]}"
+[[ ! ${conf[git_e17_path]} ]] && \
+    ferr "git_e17_path is not set:(${e}please set it via commandline or ~/.git_e17"
+#remove trailing slash from git_e17_path
+conf[git_e17_path]=${conf[git_e17_path]%/}
+debug 2 "git e17 path set to ${conf[git_e17_path]}"
 debug 2 "config file set to ${conf[config_file]}"
 debug_cfg
 } #}}}
 
-### read configuration in build directory
+### read configuration in git e17 directory
 read_local_cfg(){ #{{{
 debug 1 "${FUNCNAME[0]}()"
 #
 # This function reads the config file and sets script variables
 #
 # Out:
-# sets: inst, src, obj, branch
+# sets: ... a lot ...
 #
 #
-local conf_file="${conf[build_dir]}/${conf[config_file]}"
+local conf_file="${conf[git_e17_path]}/${conf[config_file]}"
 if [[ ! -f "$conf_file" ]]; then
     #create default config
     cat > "$conf_file" << EOF
@@ -336,24 +335,24 @@ if [[ ! -f "$conf_file" ]]; then
 # INFO:
 # - lines starting with # are ignored
 # - make sure your user has write access to all choosen paths
-# - you are able to set the path outside the build dir
+# - you are able to set the paths outside the git e17 directory
 
 # item=val - NO SPACES - NO QUOTES
 
 # this is the target dir of your installation
 install_path=/usr/local/e17
 # git repoistory directory
-src_path=${conf[build_dir]}/src-git
+src_path=${conf[git_e17_path]}/e.org.git
 # dir in which the
-object_path=${conf[build_dir]}/default-object-dir
-log_path=${conf[build_dir]}/log
+build_path=${conf[git_e17_path]}/build
+log_path=${conf[git_e17_path]}/log
 
 # packetlist to use basic, full
 packetlist=full
 # branch to checkout
 #branch=master
 # remote to pull from
-#remote=origin master
+#remote=origin
 
 # on on compile error action: ask,exit,continue
 on_error=skip
@@ -398,7 +397,7 @@ debug_cfg
 }
 ### assign default values
 assign_defaults(){
-conf[log_path]="${conf[log_path]:-"${conf[build_dir]}/log"}"
+conf[log_path]="${conf[log_path]:-"${conf[git_e17_path]}/log"}"
 conf[packagelist]="${conf[packagelist]:-"full"}"
 conf[on_error]="${conf[on_error]:-"ask"}"
 conf[nice]="${conf[nice]:-"19"}"
@@ -423,7 +422,7 @@ debug 1 "${FUNCNAME[0]}()"
 
 ## FIXME ##
 conf[deto]="$HOME/.e/e/themes" ## FIX-FOR-A-THEME
-local paths="deto install_path build_dir log_path src_path object_path log_path"
+local paths="deto install_path git_e17_path log_path src_path build_path log_path"
 local output="debug debug_level dev verbose animate"
 local conf_items="$paths $output action config_file packagelist nice on_error"
 
@@ -494,7 +493,7 @@ if [[ "${conf[pull]}" == "true" ]]; then
     section " pulling source from server "
     debug 1 "remote: $remote"
     verbose "If the updates seem sonfusing try to git reset --hard HEAD your repo"
-    if ! git pull $remote | tee "${conf[build_dir]}/git.log" ; then
+    if ! git pull $remote | tee "${conf[git_e17_path]}/git.log" ; then
         nerr "git pull failed"
     fi
 fi
@@ -687,7 +686,7 @@ local pkg="$1"
 debug 1 "package: $pkg"
 local src_path="${conf[src_path]}/trunk/$2"
 debug 1 "srcpath: $src_path"
-local obj_path="${conf[object_path]}/$1"
+local build_path="${conf[build_path]}/$1"
 g_current_failed=false
 local log_file="${conf[log_path]}/$pkg.log"
 
@@ -723,14 +722,14 @@ case "$build_type" in
         run_cmd "$pkg" "$src_path" "" "boostrap" "./bootstrap"
         ;;&
     perl)
-        run_cmd "$pkg" "$src_path" "$obj_path" "perlmake" "perl $src_path/Makefile.PL prefix=$install_path"
+        run_cmd "$pkg" "$src_path" "$build_path" "perlmake" "perl $src_path/Makefile.PL prefix=$install_path"
         ;;&
     autogen|bootstrap) #configure
-        $g_current_failed || run_cmd "$pkg" "$src_path" "$obj_path" "configure" "$src_path/configure --prefix=$install_path $pgk_conf_args"
+        $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "configure" "$src_path/configure --prefix=$install_path $pgk_conf_args"
         ;;&
     autogen|bootstrap|perl) # make && make install
-		$g_current_failed || run_cmd "$pkg" "$src_path" "$obj_path" "make" "make -j ${conf[threads]}"
-		$g_current_failed || run_cmd "$pkg" "$src_path" "$obj_path" "install" "make install"
+		$g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "make" "make -j ${conf[threads]}"
+		$g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "install" "make install"
         ;;
     make) # make && make install
 		run_cmd "$pkg" "$src_path" "" "make" "$make_extra make -j ${conf[threads]}"
@@ -757,7 +756,7 @@ debug 1 "${FUNCNAME[0]}() $@"
 # In:
 # $1 - pkg - package name
 # $2 - src - source path
-# $3 - obj - path in which configure will be run
+# $3 - build - path in which configure will be run
 # $4 - title - titel of the displayed action while the command is running
 # $@ - the command to be run
 #
@@ -773,14 +772,14 @@ debug 1 "${FUNCNAME[0]}() $@"
 
 pkg="$1"
 src="$2"
-obj="$3"
+build_path="$3"
 title="$4"
 shift 4
 
-if [[ -n "$obj" ]]; then
+if [[ -n "$build_path" ]]; then
     #clean it whatever it means
-    mkdir -p "$obj" || on_error "unable to create $obj"
-    cd "$obj" || on_error "unable to cd into $obj"
+    mkdir -p "$build_path" || on_error "unable to create $build_path"
+    cd "$build_path" || on_error "unable to cd into $build_path"
 else
     cd "$src" || on_error "unable to cd into $src"
 fi
@@ -830,7 +829,7 @@ if ! $g_current_failed; then
         if ! nice -n "${conf[nice]}" $@ 2>&1 | tee -a "$log_file"; then
             g_current_failed=true
         else
-            if tail -n 20 "$log_file" | grep -s -i error ; then
+            if tail -n 20 "$log_file" | grep -s -i error &> /dev/null; then
                 g_current_failed=true
             else
                 msg "OK"
@@ -844,7 +843,7 @@ if ! $g_current_failed; then
         if ! nice -n "${conf[nice]}" $@ &>"$log_file"; then
                 g_current_failed=true
         else
-            if tail -n 20 "$log_file" | grep -s -i error ; then
+            if tail -n 20 "$log_file" | grep -s -i error &> /dev/null; then
                 g_current_failed=true
             else
                 msg "OK"
@@ -885,6 +884,22 @@ debug 1 "${FUNCNAME[0]}()"
 #### distcheck functions }}}
 
 #### Helper functions {{{
+inter_lists(){
+    #intersect list $1 and $2
+    local result=""
+    for list1_item in $1; do
+        for list2_item in $2; do
+            if [[ "$list1_item" == "$list2_item" ]]; then
+                result="$result $list1_item"
+            fi
+        done
+    done
+}
+
+sort_as_full(){
+    #bring items in $@ in the same order as in $packages_full
+    inter_lists "$packages_full" "$@"
+}
 ## OUTPUT
 write_bold(){ tput bold; echo "$@"; tput sgr0; }
 
@@ -912,6 +927,29 @@ section(){
     for (( n=1 ; n <= (fill+rest) ; n++ )); do echo -n "$fill_symbol" ; done
     echo
     set +e
+}
+
+echo_long(){
+    # breaks a long line in single lines that fit width
+    # if the first argument is -f the second is inseted
+    # in the beginning of the lines
+
+    local fill=""
+    if [[ "$1" == "-f" ]]; then
+        fill="$2"
+        shift 2
+    fi
+    # break output at width
+    local line_out="$fill"
+    local width=80
+    for item in $@; do
+        if (( (${#line_out} + ${#item})  > width )); then
+            echo -ne "${line_out}\n"
+            line_out="${fill}${line_out}"
+        else
+            line_out="$line_out $item"
+        fi
+    done
 }
 
 print_array(){

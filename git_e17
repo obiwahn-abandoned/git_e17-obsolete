@@ -618,12 +618,12 @@ elif ${conf[pull]};then
     debug 1 "if pull"
     echo "git diff - this collects only changes that are not already in the index or committed"
     local new_files_tmp="$(git diff --name-only)"
-    new_files="$(grep -v -E "/po/.*\.po$|/INSTALL*" <<< "$new_files_tmp")"
+    new_files="$(grep -v -E "/po/.*\.po$|/INSTALL$" <<< "$new_files_tmp")"
     debug 2 "$new_files"
 else
     echo "git diff - this collects only changes that are not already in the index or committed"
     local new_files_tmp="$(git diff --name-only)"
-    new_files="$(grep -v -E "/po/.*\.po$|/INSTALL*" <<< "$new_files_tmp")"
+    new_files="$(grep -v -E "/po/.*\.po$|/INSTALL$" <<< "$new_files_tmp")"
     debug 2 "$new_files"
 
 fi
@@ -635,6 +635,8 @@ local new_dirs="$(
     done <<< "$(git diff --name-only $current_commit | sort -u )"
 )"
 
+debug 1 "new_dirs: $new_dirs"
+
 echo "building path map"
 local -A path_map
 for pkg in $packages; do
@@ -642,31 +644,34 @@ for pkg in $packages; do
     local path="${conf[current_package_path]}"
     path=${path##"$src_path"}
     debug 3 "map $pkg: $path"
-    path_map["$pkg"]="$path"
+    path_map["$pkg"]="trunk/$path/"
 done
-
 
 packages_new=""
 for pkg in $packages; do
     if [[ "${path_map[$pkg]}" ]]; then
-        if grep -s "${path_map[$pkg]}/" <<< "$new_files" &>/dev/null; then
-            packages_new="$packages $pkg"
-        fi
+        while read -r line; do
+            if [[ "${path_map[$pkg]}" == "$line" ]]; then
+                packages_new="${packages_new}$pkg "
+                debug 4 "line: $line"
+                debug 4 "map ${path_map[$pkg]}"
+            fi
+        done <<< "$new_dirs"
     fi
 done
 
 #
 # TODO - parse information about failed packages here!!!
 #
-
 packages="$packages_new"
-if [[ $packages ]]; then
+if [[ "$packages" ]]; then
     echo "The following packages are not up to date: "
     echo_long "$packages"
 else
     echo "All packages are up to date! There is no need to update!!"
     exit 0
 fi
+exit
 } #}}}
 
 ### set up the build environment
@@ -1078,6 +1083,7 @@ echo_long(){
         else
             line_out="$line_out$item "
         fi
+        echo -ne "${line_out}\n"
     done
 }
 

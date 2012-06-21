@@ -1083,8 +1083,8 @@ echo_long(){
         else
             line_out="$line_out$item "
         fi
-        echo -ne "${line_out}\n"
     done
+    echo -ne "${line_out}\n"
 }
 
 print_array(){

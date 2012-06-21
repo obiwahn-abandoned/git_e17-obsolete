@@ -658,7 +658,7 @@ done
 packages="$packages_new"
 if [[ $packages ]]; then
     echo "The following packages are not up to date: "
-    echo "$packages"
+    echo_long "$packages"
 else
     echo "All packages are up to date! There is no need to update!!"
     exit 0
@@ -718,8 +718,9 @@ debug 1 "${FUNCNAME[0]}() $@"
 # This functions should find the
 #
 section " entering build phase "
-echo "The following packages will be build:"
-echo "$packages"
+echo -e "The following packages will be build:\n"
+echo_long "$packages"
+echo
 
 for pkg in $packages; do
     msg "- trying to build $pkg ..."
@@ -1069,9 +1070,9 @@ echo_long(){
     for item in $@; do
         if (( (${#line_out} + ${#item})  > width )); then
             echo -ne "${line_out}\n"
-            line_out="${fill}${line_out}"
+            line_out="${fill}"
         else
-            line_out="$line_out $item"
+            line_out="$line_out$item "
         fi
     done
 }

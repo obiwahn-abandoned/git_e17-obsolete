@@ -31,6 +31,7 @@ declare -A conf
 
 packages=""
 packages_failed=""
+g_current_commit=""
 
 # signales return status of some operations as
 # we lack proper return values
@@ -55,17 +56,23 @@ conf[git_repo]=http://git.enlightenment.fr/cgit.cgi/svn.git/
 main(){
 debug 1 "${FUNCNAME[0]}()"
 
-section " reading commandline options "
+## interpret command line
 get_opts "$@"
+interpret_action
+## configuration
 get_git_e17_path_from_global_cfg
-section " reading local configuration options "
 read_local_cfg
-section " reading global cfg options "
 read_global_cfg
-section " assigning default vaules  "
 assign_defaults
-##
+interpret_action
+check_cfg
+## source
 get_src
+git_fetch_reset
+git_pull
+## finding changes
+calculate_updates
+##
 set_env
 build
 }
@@ -85,8 +92,6 @@ git_e17 - simple script for building enlightenment 17
 git-e17 [options] action [only <packagelist>]
 
 actions:
-    usage
-        give full instructions on how to use this script
     build
         build everything
     update
@@ -105,7 +110,7 @@ options:
     -h | --help  / --dev-help
         show help / developer help
             developer help will give you some more options
-    --build-dir
+    --git-e17-path
         workdir for this script. It will contain the source, config and log
         files and dirs in which e17 is build. The default git_e17_path sould
         be set in ~/.git_e17
@@ -132,7 +137,7 @@ extra options:
     -b | --branch <branch>
         branch, tag or commit to use
     -r | --remote <remote>
-        select remote branch to pull/fetch
+        select remote pull/fetch
     -p | --pull
         does a git pull --no-commit
     -f | --fetch-reset-hard
@@ -156,6 +161,7 @@ EOF
 ### parse command line
 get_opts(){ #{{{
 debug 1 "${FUNCNAME[0]}()"
+section " reading commandline options "
 #
 # This function reads the command line arguments
 #
@@ -173,21 +179,22 @@ do
     case $1 in
         --git-e17-path)
             conf[git_e17_path]="$2"
-            echo "found option: --build-path = $2"
+            echo "found option: --git-e17-path $2"
+            shift 2
             ;;
         -c|--conf)
-            conf[confg_file]="$2"
-            echo "found option: --conf = $2"
+            conf[config_file]="$2"
+            echo "found option: --conf $2"
             shift 2
             ;;
         -b|--branch)
             conf[branch]="$2"
-            echo "found option: --branch = $2"
+            echo "found option: --branch $2"
             shift 2
             ;;
         -r|--remote)
             conf[remote]="$2"
-            echo "found option: --remote = $2"
+            echo "found option: --remote $2"
             shift 2
             ;;
         -p|--pull)
@@ -247,12 +254,12 @@ done
 
 #parse action parameter
 debug 1 "action: $1"
-if [[ "$1" == @(build|update|cleanbuild|cleanupdate|fromscratch|list) ]]; then
+if [[ "$1" == @(build|update|devupdate|fromscratch|list) ]]; then
     conf[action]="$1"
     echo "selected action is ${conf[action]}"
     shift
 else
-    ferr -e "No vaild action given${e}Use --help option for help"
+    devhelp
 fi
 
 if [[ "$1" == only ]]; then
@@ -267,6 +274,7 @@ debug_cfg
 ### get git_e17_path form ~/.git_e17 || create the file
 get_git_e17_path_from_global_cfg(){ #{{{
 debug 1 "${FUNCNAME[0]}()"
+section "reading global configuration in ~/.git_e17"
 #
 # Read parts of the gobal config
 #   This function tries to read the gloabl configuration file
@@ -299,6 +307,7 @@ EOF
     fi
 fi
 
+#read config values git_e17_path and config_file
 while IFS='=' read -r item value; do
     if [[ "$item" == @(git_e17_path|config_file) ]]; then
         conf["$item"]=${conf["$item"]:-"$value"}
@@ -306,19 +315,35 @@ while IFS='=' read -r item value; do
     fi
 done <<< "$(grep -v ^# "$HOME/.git_e17" | grep -v ^$ )"
 
+#final check if path is set
 debug 2 "The git e17 path must be set by now!! git_e17_path=${conf[git_e17_path]}"
-[[ ! ${conf[git_e17_path]} ]] && \
-    ferr "git_e17_path is not set:(${e}please set it via commandline or ~/.git_e17"
+if [[ ! ${conf[git_e17_path]} ]]; then
+    local out="git_e17_path is not set:("
+          out="$out${e}please set it via commandline or ~/.git_e17"
+    ferr -e "$out"
+fi
+
 #remove trailing slash from git_e17_path
 conf[git_e17_path]=${conf[git_e17_path]%/}
-debug 2 "git e17 path set to ${conf[git_e17_path]}"
-debug 2 "config file set to ${conf[config_file]}"
+
+echo "git e17 path set to ${conf[git_e17_path]}"
+echo "config file set to ${conf[config_file]}"
+
+#check if git_e17_path exists
+if ! [[ -d "${conf[git_e17_path]}" && -w "${conf[git_e17_path]}" ]]; then
+    if ! mkdir -p "${conf[git_e17_path]}"; then
+        ferr -e "unable to create or access ${conf[git_e17_path]}"
+    fi
+fi
+
+
 debug_cfg
 } #}}}
 
 ### read configuration in git e17 directory
 read_local_cfg(){ #{{{
 debug 1 "${FUNCNAME[0]}()"
+section " reading git-e17-path configuration file (${conf[config_file]}) "
 #
 # This function reads the config file and sets script variables
 #
@@ -326,6 +351,7 @@ debug 1 "${FUNCNAME[0]}()"
 # sets: ... a lot ...
 #
 #
+
 local conf_file="${conf[git_e17_path]}/${conf[config_file]}"
 if [[ ! -f "$conf_file" ]]; then
     #create default config
@@ -384,6 +410,8 @@ debug_cfg
 
 ### read rest of ~/.git_e17 - sets only overwrite unset options
 read_global_cfg(){ #{{{
+debug 1 "${FUNCNAME[0]}()"
+section " reading global cfg options "
 #
 # add global configuration
 #
@@ -397,10 +425,18 @@ debug_cfg
 }
 ### assign default values
 assign_defaults(){
+debug 1 "${FUNCNAME[0]}()"
+section " assigning default vaules  "
+
 conf[log_path]="${conf[log_path]:-"${conf[git_e17_path]}/log"}"
 conf[packagelist]="${conf[packagelist]:-"full"}"
 conf[on_error]="${conf[on_error]:-"ask"}"
 conf[nice]="${conf[nice]:-"19"}"
+conf[pull]="${conf[pull]:-false}"
+conf[fetch]="${conf[fetch]:-false}"
+conf[remote]="${conf[fetch]:-"origin"}"
+#conf[branch]="${conf[fetch]:-"master"}"
+
 
 if [[ ! $packages ]]; then
     case "${conf[packagelist]}" in
@@ -412,6 +448,43 @@ if [[ ! $packages ]]; then
 fi
 
 } #}}}
+
+interpret_action(){
+debug 1 "${FUNCNAME[0]}()"
+local action="${conf[action]}"
+
+case "$action" in
+    build)
+        :
+        ;;
+    devupdate)
+        conf[action]="update"
+        ;;
+    update)
+        conf[branch]="master"
+        conf[remote]="origin"
+        conf[fetch]=true
+        conf[animate]=true
+        conf[debug]=false
+        conf[verbose]=false
+        conf[on_error]="skip"
+        ;;
+    fromscratch)
+        (( $(id -u) = 0 )) && echo "idiot!!!" && exit 666
+        rm -fr "${conf[install_path]}"
+        rm -fr "${conf[build_path]}"
+        conf[fetch]=true
+        ;;
+    list)
+        #TODO
+        echo "not imlemented"
+        exit 1
+        ;;
+
+esac
+
+
+}
 
 ### check for missing options and unwritable paths
 check_cfg(){ #{{{
@@ -455,90 +528,133 @@ debug_cfg
 
 ### functions that scan source code and select packages to be build
 ### TODO SPLIT FUNCTION
-### calls: find_local_path
 get_src(){ #{{{
 debug 1 "${FUNCNAME[0]}()"
+section " getting source code "
 
 g_current_failed=false
 local src_path="${conf[src_path]}"
 local git="${conf[git_repo]}"
-local branch="${conf[branch]}"
 local remote="${conf[remote]}"
 
 #does the repo exist
 if [[ ! -d ${conf[src_path]} ]]; then
     #create it
-    git clone "${conf[git_repo]}" "$src_path" || ferr "unable to clone repository"
+    echo "cloning ${conf[git_repo]}"
+    git clone -v --progress "${conf[git_repo]}" "$src_path" || ferr "unable to clone repository"
 fi
 #change to repo
-cd "$src_path" || exit 2
+echo "changeing into $src_path"
+cd "$src_path" || ferr "failed to cd in $src_path"
 
 #get name of branch
-local cbranch="$(git symbolic-ref HEAD)"
-cbranch=${cbranch##*/}
-debug 1 "current branch: $cbranch"
+g_current_branch="$(git symbolic-ref HEAD)"
+g_current_branch=${cbranch##*/}
+echo "Your current branch is $g_current_branch"
 
 #get hash of current HEAD
-local current_commit=$(git log -1 --format="%H")
+g_current_commit=$(git log -1 --format="%H")
+echo "You are at commit $g_current_commit"
+
+} #}}}
+
+git_fetch_reset(){ #{{{
+debug 1 "${FUNCNAME[0]}()"
+${conf[fetch]} || return
+section " git fetch  "
+
+local remote="${conf[remote]}"
 
 #select right branch
-if [[ -n "$branch" && "$branch" != "$cbranch" ]]; then
+echo "checking out $branch so that you local $branch matchtes the remote branch"
+echo "i think this is a good requirement to save the average person from harm:) "
+if [[ -n "$branch" && "$branch" != "$g_current_branch" ]]; then
     if ! git checkout ${conf[branch]}; then
         ferr "unable to checkout selected branch - fix your repository"
     fi
 fi
 
-# -pull option
-if [[ "${conf[pull]}" == "true" ]]; then
-    section " pulling source from server "
-    debug 1 "remote: $remote"
-    verbose "If the updates seem sonfusing try to git reset --hard HEAD your repo"
-    if ! git pull $remote | tee "${conf[git_e17_path]}/git.log" ; then
-        nerr "git pull failed"
-    fi
+echo "git fetch $remote"
+git fetch $remote | tee "${conf[git_e17_path]}/git.log" || nerr "git fetch"
+
+git clean -f -d &> /dev/null
+echo "git reset --hard  $remote/$branch"
+git reset --hard "$remote/$branch" | tee "${conf[git_e17_path]}/git.log" || nerr "git reset --hard failed"
+
+} #}}}
+
+git_pull(){ #{{{
+debug 1 "${FUNCNAME[0]}()"
+${conf[pull]} || return
+section " git pull --no-commit "
+section " dear god we all hope there are no conflicts "
+git pull --no-commit $remote | tee "${conf[git_e17_path]}/git.log" || nerr "git pull failed"
+} #}}}
+
+calculate_updates(){ #{{{
+debug 1 "${FUNCNAME[0]}()"
+[[ "${conf[action]}" == "update" ]] || return
+section " calculating changes "
+
+g_old_commit="$g_current_commit"
+g_current_commit=$(git log -1 --format="%H")
+
+echo "acquiring change set via:"
+
+local new_files=""
+if ${conf[fetch]} && [[ "$g_old_commit" != "$g_current_commit" ]];then
+    echo "git diff --name-only g_old_commit g_current_commit"
+    echo "old: $g_old_commit"
+    echo "new: $g_current_commit"
+    new_files="$(git diff --name-only $g_old_commit $g_current_commit)"
+    debug 2 "$new_files"
+elif ${conf[pull]};then
+    echo "git diff - this collects only changes that are not already in the index or committed"
+    new_files="$(git diff --name-only)"
+    debug 2 "$new_files"
+else
+    echo "git diff - this collects only changes that are not already in the index or committed"
+    new_files="$(git diff --name-only)"
+    debug 2 "$new_files"
 fi
 
-# action update
-if [[ "${conf[action]}" == "update" ]]; then
-    section " checking for not up to date packages "
-    debug 1 "getting paths where files changed"
-    local new_files="$(
-        while read -r line; do
-            echo "${line%/*}/"
-        done <<< "$(git diff --name-only $current_commit)" | sort -u
-    )"
+echo "receiving paths"
+local new_dirs="$(
+    while read -r line; do
+        echo "${line%/*}/"
+    done <<< "$(git diff --name-only $current_commit | sort -u )"
+)"
 
-    #get the local path of of the packages so the paths can be compared
-    debug 1 "building path map"
-    local -A path_map
-    for pkg in $packages; do
-        find_local_path "$pkg"
-        local path="${conf[current_package_path]}"
-        path=${path##"$src_path"}
-        debug 3 "map $pkg: $path"
-        path_map["$pkg"]="$path"
-    done
+echo "building path map"
+local -A path_map
+for pkg in $packages; do
+    find_local_path "$pkg" "/trunk"
+    local path="${conf[current_package_path]}"
+    path=${path##"$src_path"}
+    debug 3 "map $pkg: $path"
+    path_map["$pkg"]="$path"
+done
 
-    packages_new=""
-    for pkg in $packages; do
-        if [[ "${path_map[$pkg]}" ]]; then
-            if grep -s "${path_map[$pkg]}/" <<< "$new_files" &>/dev/null; then
-                packages_new="$packages $pkg"
-            fi
+
+packages_new=""
+for pkg in $packages; do
+    if [[ "${path_map[$pkg]}" ]]; then
+        if grep -s "${path_map[$pkg]}/" <<< "$new_files" &>/dev/null; then
+            packages_new="$packages $pkg"
         fi
-    done
-    packages="$packages_new"
-    if [[ $packages ]]; then
-        echo "The following packages are not up to date: "
-        echo "$packages"
-    else
-        echo "All packages are up to date!"
     fi
-fi
+done
 
-# Got nothing to do?
-if ! [[ $packages ]]; then
-    echo "No Packages are to be build ... Quitting!"
+#
+# TODO - parse information about failed packages here!!!
+#
+
+packages="$packages_new"
+if [[ $packages ]]; then
+    echo "The following packages are not up to date: "
+    echo "$packages"
+else
+    echo "All packages are up to date! There is no need to update!!"
     exit 0
 fi
 } #}}}
@@ -548,7 +664,7 @@ set_env(){ #{{{
 debug 1 "${FUNCNAME[0]}()"
 local install_path="${conf[install_path]}"
 
-section " setting env variables ..."
+section "setting env variables ..."
 
 export PATH="$install_path/bin:$PATH"
 echo "PATH=$PATH"
@@ -585,8 +701,7 @@ for dir in "$install_path/share/aclocal" "$PYTHONPATH" "$PYTHONINCLUDE"; do
     fi
 done
 ## TODO ## OUTPUT
-$failed && echo "failed" && exit 1
-echo ok
+$failed && exit 1
 } #}}}
 
 ### build
@@ -609,7 +724,7 @@ for pkg in $packages; do
     conf[current_package_path]=""
 
     #find src
-    find_local_path "$pkg"
+    find_local_path "$pkg" "/trunk"
     cpath=${conf[current_package_path]}
     if [[ -z "$cpath" ]]; then
         nerr "source path of of package $pkg not found"
@@ -642,13 +757,16 @@ debug 1 "${FUNCNAME[0]}() $@"
 #
 # In:
 # $1 - package name
-#
+# $2 - trunk
 # Out:
 # sets: conf[current_package_path]
 #
-local name=$1
+local name="$1"
+local trunk="$2"
 local path=""
-local src_path="${conf[src_path]}/trunk"
+local src_path="${conf[src_path]}${trunk}"
+
+conf[current_package_path]="$path"
 
 #prune dirs to ignore
 local prune=""

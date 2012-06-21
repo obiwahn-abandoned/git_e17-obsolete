@@ -1,9 +1,9 @@
-Features to implement
+TODO
+- test and fix: action update && --pull and --fetch  options
 - clean / distclean
 - mangement of failed packages
 - usage
-- fromscratch
-- options: -s, --vmake --confargs --branch --remote
 
 - distchecks
-- list of packages
+- action: list
+- action: usage 

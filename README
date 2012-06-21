@@ -12,25 +12,23 @@ Coded by Jan Christoph Uhde (linux@obiwahn.org)
 
 Usage examples:
 
-./git_e17 -s -a build 
+./git_e17 -s -a build
     Get and build the whole window manager in animation mode
     and skip non fatal errors.
 
 ./git_e17 update
-    Build packages that failed in the past and those which
-    contain files that differ from HEAD.
+    Get the latest version
 
-./git_e17 --pull update
-    Pull sources from the e17 git repository and build only packages
-    that have failed in the past or which contain files that differ from
-    pre-pull commit.
+    This uses --fetch-reset-hard so it will whipe you changes!!!!
+
+./git_e17 devupdate
+    update only files that changed but are not in you index
 
 ./git build only eina evas
     build only eina and evas show parts of the build log on errors and
     ask what to do when an error is encountered
 
-./git_e17 --build-dir /path/to/alternate/build/dir --pull --remote raster --branch terminology update only terminology
+./git_e17 --git-e17-path /path/to/alternate/git_17_dir --pull --remote raster --branch terminology devupdate only terminology
 or
-./git -conf raster_term update .oO(i would create a separate config:P)
-
+./git -conf raster_term devupdate .oO(i would create a separate config:P)
 

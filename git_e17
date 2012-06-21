@@ -821,6 +821,7 @@ debug 1 "package: $pkg"
 local src_path="${conf[src_path]}/trunk/$2"
 debug 1 "srcpath: $src_path"
 local build_path="${conf[build_path]}/$1"
+debug 1 "build_path: $build_path"
 g_current_failed=false
 local log_file="${conf[log_path]}/$pkg.log"
 
@@ -862,6 +863,7 @@ case "$build_type" in
         $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "configure" "$src_path/configure --prefix=$install_path $pgk_conf_args"
         ;;&
     autogen|bootstrap|perl) # make && make install
+        set -x
 		$g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "make" "make -j ${conf[threads]}"
 		$g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "install" "make install"
         ;;
@@ -885,7 +887,7 @@ esac
 ### runs the commands that are actually used to build the code
 ### calls: rotate
 run_cmd(){ #{{{
-debug 1 "${FUNCNAME[0]}() $@"
+debug 1 "${FUNCNAME[0]}() $*"
 #
 # In:
 # $1 - pkg - package name
@@ -904,10 +906,10 @@ debug 1 "${FUNCNAME[0]}() $@"
 # maybe it is better to write a seperate run_animated function
 #
 
-pkg="$1"
-src="$2"
-build_path="$3"
-title="$4"
+local pkg="$1"
+local src="$2"
+local build_path="$3"
+local title="$4"
 shift 4
 
 if [[ -n "$build_path" ]]; then

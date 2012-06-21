@@ -58,7 +58,6 @@ debug 1 "${FUNCNAME[0]}()"
 
 ## interpret command line
 get_opts "$@"
-interpret_action
 ## configuration
 get_git_e17_path_from_global_cfg
 read_local_cfg
@@ -432,10 +431,9 @@ conf[log_path]="${conf[log_path]:-"${conf[git_e17_path]}/log"}"
 conf[packagelist]="${conf[packagelist]:-"full"}"
 conf[on_error]="${conf[on_error]:-"ask"}"
 conf[nice]="${conf[nice]:-"19"}"
-conf[pull]="${conf[pull]:-false}"
-conf[fetch]="${conf[fetch]:-false}"
-conf[remote]="${conf[fetch]:-"origin"}"
-#conf[branch]="${conf[fetch]:-"master"}"
+conf[pull]=${conf[pull]:-false}
+conf[fetch]=${conf[fetch]:-false}
+conf[remote]="${conf[remote]:-"origin"}"
 
 
 if [[ ! $packages ]]; then
@@ -456,18 +454,21 @@ local action="${conf[action]}"
 case "$action" in
     build)
         conf[action]="build"
-        ;;
-    devupdate)
-        conf[action]="update"
+        conf[fetch]=false
+        conf[pull]=false
         ;;
     update)
         conf[branch]="master"
         conf[remote]="origin"
         conf[fetch]=true
+        conf[pull]=false
         conf[animate]=true
         conf[debug]=false
         conf[verbose]=false
         conf[on_error]="skip"
+        ;;
+    devupdate)
+        conf[action]="update"
         ;;
     fromscratch)
         (( $(id -u) = 0 )) && echo "idiot!!!" && exit 666
@@ -559,7 +560,7 @@ echo "You are at commit $g_current_commit"
 } #}}}
 
 git_fetch_reset(){ #{{{
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "${FUNCNAME[0]}() $@"
 ${conf[fetch]} || return
 section " git fetch  "
 
@@ -616,12 +617,15 @@ if ${conf[fetch]}; then
 elif ${conf[pull]};then
     debug 1 "if pull"
     echo "git diff - this collects only changes that are not already in the index or committed"
-    new_files="$(git diff --name-only)"
+    local new_files_tmp="$(git diff --name-only)"
+    new_files="$(grep -v -E "/po/.*\.po$|/INSTALL*" <<< "$new_files_tmp")"
     debug 2 "$new_files"
 else
     echo "git diff - this collects only changes that are not already in the index or committed"
-    new_files="$(git diff --name-only)"
+    local new_files_tmp="$(git diff --name-only)"
+    new_files="$(grep -v -E "/po/.*\.po$|/INSTALL*" <<< "$new_files_tmp")"
     debug 2 "$new_files"
+
 fi
 
 echo "receiving paths"

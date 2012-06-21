@@ -862,7 +862,6 @@ case "$build_type" in
         $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "configure" "$src_path/configure --prefix=$install_path $pgk_conf_args"
         ;;&
     autogen|bootstrap|perl) # make && make install
-        set -x
 		$g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "make" "make -j ${conf[threads]}"
 		$g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "install" "make install"
         ;;
@@ -958,9 +957,9 @@ if ! $g_current_failed; then
         #return here and now do not go any further - HACK!!!
         return
     #if a more verbose mode is used
-    elif ${conf[verbose]} || ${conf[debug]} || ${conf[dev]} ; then
+    elif ${conf[verbose]} || ${conf[dev]} ; then
         msg -n "  - $title ... "
-        verbose "running: nice -n ${conf[nice]} $@ 2>&1 | tee $log_file"
+        verbose "running: nice -n ${conf[nice]} $@ &> >(tee -a $log_file)"
         if ! nice -n "${conf[nice]}" $@ 2>&1 | tee -a "$log_file"; then
             g_current_failed=true
         else

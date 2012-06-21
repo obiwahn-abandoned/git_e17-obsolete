@@ -128,7 +128,7 @@ cat << EOF
 
 extra actions:
     devupdate
-        TODO
+        almost the same as update but does not imply --fetch-reset-hard
 
 extra options:
     --conf <conf>
@@ -161,7 +161,7 @@ EOF
 ### parse command line
 get_opts(){ #{{{
 debug 1 "${FUNCNAME[0]}()"
-section " reading commandline options "
+section " reading command line options "
 #
 # This function reads the command line arguments
 #
@@ -477,7 +477,7 @@ case "$action" in
         ;;
     list)
         #TODO
-        echo "not imlemented"
+        echo "not implemented"
         exit 1
         ;;
 

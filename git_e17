@@ -32,6 +32,8 @@ declare -A conf
 packages=""
 packages_failed=""
 g_current_commit=""
+g_current_branch=""
+g_old_commit=""
 
 # signales return status of some operations as
 # we lack proper return values
@@ -554,8 +556,8 @@ g_current_branch="${g_current_branch##*/}"
 echo "Your current branch is $g_current_branch"
 
 #get hash of current HEAD
-g_current_commit=$(git log -1 --format="%H")
-echo "You are at commit $g_current_commit"
+g_old_commit="$(git log -1 --format="%H")"
+echo "You are at commit $g_old_commit"
 
 } #}}}
 
@@ -565,7 +567,7 @@ ${conf[fetch]} || return
 section " git fetch  "
 
 local remote="${conf[remote]}"
-local branch="${conf[branch]}"
+local branch="${conf[branch]:-"$g_current_branch"}"
 
 #select right branch
 echo "checking out $branch so that you local $branch matchtes the remote branch"
@@ -598,8 +600,7 @@ debug 1 "${FUNCNAME[0]}()"
 [[ "${conf[action]}" == "update" ]] || return
 section " calculating changes "
 
-g_old_commit="$g_current_commit"
-g_current_commit=$(git log -1 --format="%H")
+g_current_commit="$(git log -1 --format="%H")"
 
 echo "acquiring change set via:"
 
@@ -607,13 +608,15 @@ local new_files=""
 if ${conf[fetch]}; then
     debug 1 "if fetch"
     if [[ "$g_old_commit" != "$g_current_commit" ]];then
-        : ##return
+        echo "git diff --name-only g_old_commit g_current_commit"
+        echo "old: $g_old_commit"
+        echo "new: $g_current_commit"
+        new_files="$(git diff --name-only $g_old_commit $g_current_commit)"
+        debug 2 "new files: $new_files"
+    else
+        echo "The commit has not changed!!"
     fi
-    echo "git diff --name-only g_old_commit g_current_commit"
-    echo "old: $g_old_commit"
-    echo "new: $g_current_commit"
-    new_files="$(git diff --name-only $g_old_commit $g_current_commit)"
-    debug 2 "$new_files"
+
 elif ${conf[pull]};then
     debug 1 "if pull"
     echo "git diff - this collects only changes that are not already in the index or committed"

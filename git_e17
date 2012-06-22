@@ -156,6 +156,7 @@ extra options:
     --conf_args
         extra configure args - for all packages
     -v | --verbose
+        be more verbose during the build
     -d | --debug
         enable script debugging mode
 EOF
@@ -941,7 +942,7 @@ if ! $g_current_failed; then
     #if animation mode is used
     if ${conf[animate]}; then
         #call
-        nice -n "${conf[nice]}" $@ &>>"$log_file" &
+        nice -n "${conf[nice]}" bash -c "$@" &>>"$log_file" &
         #get pid
         pid="$!"
         #start animation
@@ -951,7 +952,7 @@ if ! $g_current_failed; then
             g_current_failed=true
         else
             #check log for errors
-            if tail -n 20 "$log_file" | grep -s -i error &> /dev/null; then
+            if tail -n 20 "$log_file" | grep -q -i error &> /dev/null; then
                 g_current_failed=true
             fi
         fi
@@ -962,26 +963,25 @@ if ! $g_current_failed; then
         return
     #if a more verbose mode is used
     elif ${conf[verbose]} || ${conf[dev]} ; then
-        msg -n "  - $title ... "
-        verbose "running: nice -n ${conf[nice]} $@ &> >(tee -a $log_file)"
-        if ! nice -n "${conf[nice]}" $@ 2>&1 | tee -a "$log_file"; then
+        echo -e "  - RUNNING: ${bold}$@${boldoff} ... \n"
+        sleep 2
+        if ! nice -n "${conf[nice]}" bash -c "$@" &> >(tee -a "$log_file"); then
             g_current_failed=true
         else
-            if tail -n 20 "$log_file" | grep -s -i error &> /dev/null; then
+            if tail -n 20 "$log_file" | grep -q -i error &> /dev/null; then
                 g_current_failed=true
             else
-                msg "OK"
+                echo
                 return
             fi
         fi
     #if normal mode is used
     else
         msg -n "  - $title ... "
-        verbose "running: nice -n ${conf[nice]} $@ &>$log_file"
-        if ! nice -n "${conf[nice]}" $@ &>"$log_file"; then
+        if ! nice -n "${conf[nice]}" bash -c "$@" &>"$log_file"; then
                 g_current_failed=true
         else
-            if tail -n 20 "$log_file" | grep -s -i error &> /dev/null; then
+            if tail -n 20 "$log_file" | grep -q -i error &> /dev/null; then
                 g_current_failed=true
             else
                 msg "OK"
@@ -1066,7 +1066,7 @@ debian(){
 debug 1 "$FUNCNAME() $*"
 
 #must be tested for stable
-local deps_debian_common="subversion autoconf automake1.9 autotools-dev autoconf-archive gettext libtool libfreetype6-dev "
+local deps_debian_common="git autoconf automake1.9 autotools-dev autoconf-archive gettext libtool libfreetype6-dev "
 deps_debian_common+="libpng12-dev libtiff4-dev libgif-dev libbz2-dev libltdl-dev pkg-config libxine-dev build-essential flex bison byacc "
 deps_debian_common+="libxcursor-dev libtag1-dev sqlite libxml2-dev libsqlite3-dev libxslt1.1 libxslt1-dev giblib1 "
 deps_debian_common+="giblib-dev libtool libtagc0-dev libmpd1 libmpd-dev libxcomposite-dev libxcomposite1 libxdamage-dev "

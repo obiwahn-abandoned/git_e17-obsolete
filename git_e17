@@ -13,6 +13,9 @@
 # Coded by Jan Christoph Uhde (linux@obiwahn.org)                       #
 #########################################################################
 
+(( $BASH_VERSINFO < 4 )) && echo -e "\nThis Script requires at least bash version >= 4\n" && exit 1
+
+
 ### global variable definitions {{{
 efl_basic="eina eet evas ecore efreet eio eeze e_dbus embryo edje azy ethumb elementary"
 efl_extra="imlib2 emotion enlil libast python-evas python-ecore python-e_dbus python-edje python-emotion python-elementary shellementary"
@@ -56,7 +59,7 @@ conf[git_repo]=http://git.enlightenment.fr/cgit.cgi/svn.git/
 ###end global vars }}}
 #### main function {{{
 main(){
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 
 ## interpret command line
 get_opts "$@"
@@ -82,7 +85,7 @@ build
 ##### functions used in main {{{
 ### display help - help(), devhelp() {{{
 help(){
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 #
 # This functions displays the help file
 #
@@ -121,7 +124,7 @@ options:
 EOF
 }
 devhelp(){
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 #
 # This functions displays the developer help file
 #
@@ -161,7 +164,7 @@ EOF
 
 ### parse command line
 get_opts(){ #{{{
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 section " reading command line options "
 #
 # This function reads the command line arguments
@@ -223,7 +226,6 @@ do
         -d|--debug)
             conf[debug]=true
             conf[animate]=false
-            conf[verbose]=true
             conf[debug_level]=4
             echo "found option: --debug"
             shift
@@ -260,7 +262,9 @@ if [[ "$1" == @(build|update|devupdate|fromscratch|list) ]]; then
     echo "selected action is ${conf[action]}"
     shift
 else
-    devhelp
+    echo "Error: No vaild action"
+    help
+    exit 1
 fi
 
 if [[ "$1" == only ]]; then
@@ -274,7 +278,7 @@ debug_cfg
 
 ### get git_e17_path form ~/.git_e17 || create the file
 get_git_e17_path_from_global_cfg(){ #{{{
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 section "reading global configuration in ~/.git_e17"
 #
 # Read parts of the gobal config
@@ -343,7 +347,7 @@ debug_cfg
 
 ### read configuration in git e17 directory
 read_local_cfg(){ #{{{
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 section " reading git-e17-path configuration file (${conf[config_file]}) "
 #
 # This function reads the config file and sets script variables
@@ -411,12 +415,12 @@ debug_cfg
 
 ### read rest of ~/.git_e17 - sets only overwrite unset options
 read_global_cfg(){ #{{{
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 section " reading global cfg options "
 #
 # add global configuration
 #
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
     config="$(grep -v ^# < "$HOME/.git_e17" | grep -v ^$)"
     debug 3 "$config"
     while IFS='=' read -r item value; do
@@ -426,7 +430,7 @@ debug_cfg
 }
 ### assign default values
 assign_defaults(){
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 section " assigning default vaules  "
 
 conf[log_path]="${conf[log_path]:-"${conf[git_e17_path]}/log"}"
@@ -450,7 +454,7 @@ fi
 } #}}}
 
 interpret_action(){
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 local action="${conf[action]}"
 
 case "$action" in
@@ -491,7 +495,7 @@ esac
 
 ### check for missing options and unwritable paths
 check_cfg(){ #{{{
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 #
 # check configuration
 #
@@ -532,7 +536,7 @@ debug_cfg
 ### functions that scan source code and select packages to be build
 ### TODO SPLIT FUNCTION
 get_src(){ #{{{
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 section " getting source code "
 
 g_current_failed=false
@@ -562,7 +566,7 @@ echo "You are at commit $g_old_commit"
 } #}}}
 
 git_fetch_reset(){ #{{{
-debug 1 "${FUNCNAME[0]}() $@"
+debug 1 "$FUNCNAME() $*"
 ${conf[fetch]} || return
 section " git fetch  "
 
@@ -588,7 +592,7 @@ git reset --hard "$remote/$branch" | tee "${conf[git_e17_path]}/git.log" || nerr
 } #}}}
 
 git_pull(){ #{{{
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 ${conf[pull]} || return
 section " git pull --no-commit "
 section " dear god we all hope there are no conflicts "
@@ -596,7 +600,7 @@ git pull --no-commit $remote | tee "${conf[git_e17_path]}/git.log" || nerr "git 
 } #}}}
 
 calculate_updates(){ #{{{
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 [[ "${conf[action]}" == "update" ]] || return
 section " calculating changes "
 
@@ -675,7 +679,7 @@ fi
 
 ### set up the build environment
 set_env(){ #{{{
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 local install_path="${conf[install_path]}"
 
 section "setting env variables ..."
@@ -721,7 +725,7 @@ $failed && exit 1
 ### build
 ### calls: find_local_path, compile
 build(){ #{{{
-debug 1 "${FUNCNAME[0]}() $@"
+debug 1 "$FUNCNAME() $*"
 #
 # This functions should find the
 #
@@ -766,7 +770,7 @@ done
 
 ### find the sourcecode of a pacakge
 find_local_path (){ #{{{
-debug 1 "${FUNCNAME[0]}() $@"
+debug 1 "$FUNCNAME() $*"
 #
 # Function that should find the source path to the current package
 #
@@ -814,7 +818,7 @@ fi
 ### sets up configure parameters
 ### calls: run_cmd
 compile(){ #{{{
-debug 1 "${FUNCNAME[0]}() $@"
+debug 1 "$FUNCNAME() $*"
 local pkg="$1"
 debug 1 "package: $pkg"
 local src_path="${conf[src_path]}/trunk/$2"
@@ -885,7 +889,7 @@ esac
 ### runs the commands that are actually used to build the code
 ### calls: rotate
 run_cmd(){ #{{{
-debug 1 "${FUNCNAME[0]}() $*"
+debug 1 "$FUNCNAME() $*"
 #
 # In:
 # $1 - pkg - package name
@@ -997,24 +1001,121 @@ fi #end of prechecks of
 
 #### distcheck functions {{{
 distcheck(){
+section " build dependences check "
 #echo -e "${bold}checking distribution ...${boldoff}"
-debug 1 "${FUNCNAME[0]}()"
+debug 1 "$FUNCNAME() $*"
 [[ "$@" != "distcheck" ]] && return
+
 #check for programs
 #find  distribution
-distribution="debian"
-case $distribution in
-    debian) debian ;;
-    *) : ;;
-esac
+if [ -e "/etc/debian_version" ]; then
+    echo "found distribution debian"
+    debian
+elif [ -e "/etc/gentoo-release" ]; then
+    echo "found distribution gentoo"
+    unsupported_dist_note
+elif [ -e "/etc/redhat-release" ]; then
+    echo "found distribution gentoo"
+    unsupported_dist_note
+elif [ -e "/etc/SuSE-release" ]; then
+    echo "found distribution gentoo"
+    unsupported_dist_note
+else
+    echo "did not find your distribution"
+    unsupported_dist_note
+fi
+
+echo "proceeding with general checks"
+#
+#   general check
+#
+local failed=false
+
+deps_bin="git make automake byacc g++ gcc libtool pkg-config"
+deps_dev="dbus-1 fontconfig freetype GL jpeg lua5.1 png rsvg-2 udev xml2 X11 Xext Xrandr xcb"
+
+echo -e "checking commands:"
+for bin in $deps_bin; do
+    echo_padd 15 ' ' -n "$bin"
+    if ! type $bin &> /dev/null; then
+        failed=true
+        echo "missing"
+    else
+        echo "ok"
+    fi
+done
+
+echo -e "\n\nchecking includes:"
+compfile="/tmp/include_test.c"
+echo "main(){}" >$compfile
+for dep in $deps_dev; do
+    echo_padd 15 ' ' -n "$dep"
+    if ! gcc -o /dev/null $compfile -l$dep &>/dev/null; then
+        failed=true
+        echo "include missing"
+    else
+        echo "ok"
+    fi
+done
+
+$failed && echo "Please install the missing build dependencies" && exit 1
 exit 0
 }
 ##  debian specific stuff
 debian(){
-debug 1 "${FUNCNAME[0]}()"
-#dpkg -l check packages
-#ask to install dpkgs
+debug 1 "$FUNCNAME() $*"
+
+#must be tested for stable
+local deps_debian_common="subversion autoconf automake1.9 autotools-dev autoconf-archive gettext libtool libfreetype6-dev "
+deps_debian_common+="libpng12-dev libtiff4-dev libgif-dev libbz2-dev libltdl-dev pkg-config libxine-dev build-essential flex bison byacc "
+deps_debian_common+="libxcursor-dev libtag1-dev sqlite libxml2-dev libsqlite3-dev libxslt1.1 libxslt1-dev giblib1 "
+deps_debian_common+="giblib-dev libtool libtagc0-dev libmpd1 libmpd-dev libxcomposite-dev libxcomposite1 libxdamage-dev "
+deps_debian_common+="libxdamage1 libxkbfile-dev libxkbfile1 libxkbfile-dev libxkbfile1 libdbus-1-dev libtheora-dev libpopt-dev "
+deps_debian_common+="libglib2.0-dev libfontconfig1-dev libxrandr-dev libasound2-dev libxinerama-dev cvs automake libgstreamer0.10-dev menu "
+deps_debian_common+="menu-xdg xdg-utils liblua5.1-0-dev dbus-x11 libexif-dev mesa-common-dev libudev-dev cython "
+deps_debian_common+="libxcb-shape0-dev"
+
+##TODO finish the lists
+local stable="libpam-dev libiptcdata-dev libcurl4-gnutls-dev libsdl-dev"
+local sid="libpam0g-dev libiptcdata0-dev libcurl4-openssl-dev libsdl1.2-dev"
+
+## use this for now
+local deps_debian_sid="$deps_debian_common $sid"
+
+local pkg_list="$(dpkg -l)"
+local missing=""
+
+echo -e "\n ### checking for SID only ###"
+echo -e "\ndependences in sid:"
+echo "$deps_debian_sid"
+
+for dep in $deps_debian_sid; do
+    if ! echo "$pkg_list" | grep -q -E "^ii\s*$dep" &>/dev/null ; then
+        missing+="$dep "
+    fi
+    wait
+done
+
+
+if [[ $missing ]]; then
+    echo -e "\n\nThe following packages are missing:\n$missing\n"
+    if (( $(id -u) == 0 )); then
+        if [[ $(ask_yn "do you want to install the missing packages?") == "yes" ]]; then
+            apt-get install "$missing"
+        fi
+    else
+        exit 1
+    fi
+fi
+
 }
+
+unsupported_dist_note(){
+echo "there are currently no checks for you distribution / OS available"
+echo "please send me a patch or tell me which packages are required"
+echo "and how to check their presence"
+}
+
 #### distcheck functions }}}
 
 #### Helper functions {{{
@@ -1063,6 +1164,28 @@ section(){
     set +e
 }
 
+echo_padd(){
+local len="$1"
+local padd="$2"
+local args=
+shift 2
+while : ; do
+    if [[ $1 == @(-n|-e|-ne) ]]; then
+        args+=$1
+        shift
+    else
+        break
+    fi
+done
+
+msg="$@ "
+
+while (( ${#msg} < len )); do
+    msg+="$padd"
+done
+echo $args "$msg"
+}
+
 echo_long(){
     # breaks a long line in single lines that fit width
     # if the first argument is -f the second is inseted
@@ -1101,20 +1224,20 @@ err(){ echo; echo -n "Error: "; echo "$@"; }
 ferr(){ err "$@"; exit 1; }
 #non fatal error
 nerr(){
-debug 1 "${FUNCNAME[0]}() $@"
+debug 1 "$FUNCNAME() $*"
 g_current_failed=true
 [[ ${conf[on_error]} == "skip" ]] && return
 err "$@"
 case ${conf[on_error]} in
     exit) exit 1 ;;
-    ask)  local rv="$(ask_to_con)"; [[ "$rv" == "no" ]] && exit 1 ;;
+ask)  local rv="$(ask_yn "The Programm encountered an error - do you want to continue?")"; [[ "$rv" == "no" ]] && exit 1 ;;
 esac
 }
 
 # ask to continue on error
-ask_to_con(){
+ask_yn(){
 while true; do
-    read -p "The Programm encountered an error - do you want to continue? (y/n) " yn
+    read -p "$@ (y/n)" yn
     case "$yn" in
         [Yy]*) echo "yes"; break ;;
         [Nn]*) echo "no" ; break ;;
@@ -1146,11 +1269,12 @@ fi
 msg="$@"
 
 if (( level <= ${conf[debug_level]} )); then
-    while read -r line; do
-        echo "debug $level: $line" 1>&2
-    done <<< "$msg"
+    while read -r debug_line <&13; do
+        echo "debug $level: $debug_line" 1>&2
+    done 13<<< "$msg"
 fi
 [[ "$action" == "sleep" ]] && sleep 5
+[[ "$action" == "ask" ]]   && read -p "press key to continue" -n 1
 }
 
 debug-x(){ ${conf[debug]} && set -x; }

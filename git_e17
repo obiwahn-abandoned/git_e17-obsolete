@@ -75,6 +75,10 @@ uninstall
 get_src
 git_fetch_reset
 git_pull
+## package management
+section " ignore packages "
+ignore_pkgs
+[[ $packages ]] || echo -e "\nNo packages to build!\n" && exit 0
 ## finding changes
 calculate_updates
 ##
@@ -273,6 +277,11 @@ do
             echo "found option: --clean"
             echo "this options is not implemented jet :-("
             shift
+            ;;
+        -i | --ignore)
+            conf[ignore]="$2"
+            echo "found option: --ignore '$2'"
+            shift 2
             ;;
         -h|--help)
             echo ""
@@ -525,6 +534,7 @@ case "$action" in
         rm -fr "${conf[install_path]}"
         rm -fr "${conf[build_path]}"
         conf[fetch]=true
+        conf[action]="build"
         ;;
     list)
         #TODO
@@ -580,10 +590,11 @@ debug_cfg
 ### uninstall e17
 uninstall(){ #{{{
 debug 1 "$FUNCNAME() $*"
+[[ ${conf[action]} == uninstall ]] || return
 #
 # This functions uninstall e17
 #
-sechtion " uninstalling e17 "
+section " uninstalling e17 "
 echo "not implemented :("
 exit 0
 } #}}}
@@ -732,6 +743,14 @@ else
     exit 0
 fi
 } #}}}
+
+ignore_pkgs(){
+debug 1 "$FUNCNAME() $*"
+[[ ${conf[ignore]} ]] || return
+local ignore=${conf[ignore]//,/ }
+echo "ignoring packages $ignore"
+packages="$(sub_lists "$packages" "$ignore")"
+}
 
 ### set up the build environment
 set_env(){ #{{{
@@ -1180,17 +1199,28 @@ echo "and how to check their presence"
 
 #### Helper functions {{{
 inter_lists(){
-    #intersect list $1 and $2
-    local result=""
-    for list1_item in $1; do
-        for list2_item in $2; do
-            if [[ "$list1_item" == "$list2_item" ]]; then
-                result="$result $list1_item"
-            fi
-        done
+#intersect list $1 and $2
+local result=""
+for list1_item in $1; do
+    for list2_item in $2; do
+        if [[ "$list1_item" == "$list2_item" ]]; then
+            result+="$list1_item "
+        fi
     done
+done
 }
 
+# subtract 2nd list from first
+sub_lists(){
+local result=""
+for list1_item in $1; do
+    for list2_item in $2; do
+        if ! [[ "$list1_item" == "$list2_item" ]]; then
+            result+="$list1_item "
+        fi
+    done
+done
+}
 sort_as_full(){
     #bring items in $@ in the same order as in $packages_full
     inter_lists "$packages_full" "$@"

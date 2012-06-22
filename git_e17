@@ -62,6 +62,7 @@ debug 1 "$FUNCNAME() $*"
 
 ## interpret command line
 get_opts "$@"
+list ## list availalbe packages
 ## configuration
 get_git_e17_path_from_global_cfg
 read_local_cfg
@@ -76,9 +77,11 @@ get_src
 git_fetch_reset
 git_pull
 ## package management
-section " ignore packages "
 ignore_pkgs
-[[ $packages ]] || echo -e "\nNo packages to build!\n" && exit 0
+if ! [[ "$packages" ]]; then
+    echo -e "\nNo packages to build!\n"
+    exit 0
+fi
 ## finding changes
 calculate_updates
 ##
@@ -107,9 +110,8 @@ actions:
         build everything
     update
         update your e17 to the latest version
-        (git_e17 --animate --skip-errors --remote origin --fetch-reset-hard devupdate)
     list
-        list all available packages (TODO with description)
+        list all available packages
     uninstall
         uninstall e17
 only:
@@ -534,7 +536,7 @@ case "$action" in
         rm -fr "${conf[install_path]}"
         rm -fr "${conf[build_path]}"
         conf[fetch]=true
-        conf[action]="build"
+        conf[action]="update"
         ;;
     list)
         #TODO
@@ -723,11 +725,9 @@ done
 packages_new=""
 for pkg in $packages; do
     if [[ "${path_map[$pkg]}" ]]; then
-        while read -r line; do
-            if [[ $line = *"${path_map[$pkg]}"* ]]; then
-                packages_new="${packages_new}$pkg "
-            fi
-        done <<< "$new_dirs"
+        if echo $new_dirs | grep -q -E  "${path_map[$pkg]}.*" ; then
+            packages_new+="$pkg "
+        fi
     fi
 done
 
@@ -746,7 +746,8 @@ fi
 
 ignore_pkgs(){
 debug 1 "$FUNCNAME() $*"
-[[ ${conf[ignore]} ]] || return
+[[ "${conf[ignore]}" ]] || return
+section " ignore packages "
 local ignore=${conf[ignore]//,/ }
 echo "ignoring packages $ignore"
 packages="$(sub_lists "$packages" "$ignore")"
@@ -812,7 +813,7 @@ section " entering build phase "
 echo -e "The following packages will be build:\n"
 echo_long "$packages"
 echo
-
+exit
 for pkg in $packages; do
     msg "- trying to build $pkg ..."
 
@@ -1080,10 +1081,10 @@ fi #end of prechecks of
 
 #### distcheck functions {{{
 distcheck(){
-section " build dependences check "
 #echo -e "${bold}checking distribution ...${boldoff}"
 debug 1 "$FUNCNAME() $*"
 [[ "$@" != "check" ]] && return
+section " build dependences check "
 
 #check for programs
 #find  distribution
@@ -1294,7 +1295,7 @@ echo_long(){
             echo -ne "${line_out}\n"
             line_out="${fill}"
         else
-            line_out="$line_out$item "
+            line_out+="$item "
         fi
     done
     echo -ne "${line_out}\n"
@@ -1482,6 +1483,16 @@ function write_appname ()
 
 ### END HELPER FUNCTIONS }}}
 
+list(){ #{{{
+debug 1 "$FUNCNAME() $*"
+[[ ${conf[action]} == list ]] || return
+section " list of available enlightenment packages "
+echo
+echo "not implemented"
+echo
+
+exit 0
+} #}}}
 ### programm starts here
 # well it can be done as root
 distcheck "$@"

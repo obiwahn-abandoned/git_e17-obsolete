@@ -15,7 +15,6 @@
 
 (( $BASH_VERSINFO < 4 )) && echo -e "\nThis Script requires at least bash version >= 4\n" && exit 1
 
-
 ### global variable definitions {{{
 efl_basic="eina eet evas ecore efreet eio eeze e_dbus embryo edje azy ethumb elementary"
 efl_extra="imlib2 emotion enlil libast python-evas python-ecore python-e_dbus python-edje python-emotion python-elementary shellementary"
@@ -70,6 +69,8 @@ read_global_cfg
 assign_defaults
 interpret_action
 check_cfg
+##
+uninstall
 ## source
 get_src
 git_fetch_reset
@@ -96,17 +97,17 @@ git_e17 - simple script for building enlightenment 17
 git-e17 [options] action [only <packagelist>]
 
 actions:
+    check
+        check if your system is ready to install e17
     build
         build everything
     update
         update your e17 to the latest version
         (git_e17 --animate --skip-errors --remote origin --fetch-reset-hard devupdate)
-    fromscratch
-        delete e17 installation and build e17 from scratch
-        ATTENTION: this will rm -fr $install_path
-                   do not do is if you installed to /usr/local
     list
         list all available packages (TODO with description)
+    uninstall
+        uninstall e17
 only:
     use only named packages
 
@@ -118,6 +119,7 @@ options:
         workdir for this script. It will contain the source, config and log
         files and dirs in which e17 is build. The default git_e17_path sould
         be set in ~/.git_e17
+    -i | --ignore pkg1,pkg2,pkg2
     -s | --skip-errors
         skip non fatal errors
     -a | --animate
@@ -133,11 +135,18 @@ cat << EOF
 extra actions:
     devupdate
         almost the same as update but does not imply --fetch-reset-hard
+    fromscratch
+        delete e17 installation and build e17 from scratch
+        ATTENTION: this will rm -fr $install_path
+                   do not do is if you installed to /usr/local
 
 extra options:
     --conf <conf>
         config file - especially useful if you want multiple installs
         ONLY CONF NAME - NO FULL PATHS!!!
+    --cflags  "flags"
+    --ldflags "flags
+        you need the quotes!!
     -b | --branch <branch>
         branch, tag or commit to use
     -r | --remote <remote>
@@ -149,7 +158,7 @@ extra options:
         fetchs update from remote finds out your current branch
         and will do a git reset --hard remote/currentbrach
 
-    --clean / --distclean
+    --clean / --distclean / --uninstall
         make clean / distclean before building
     --vmake
         more verbse make (V=1)
@@ -237,6 +246,34 @@ do
             echo "found option: --verbose"
             shift
             ;;
+        --cflags)
+            conf[cflags]="$2"
+            echo "found option: --cflags $2"
+            shift 2
+            ;;
+        --ldflags)
+            conf[ldlags]="$2"
+            echo "found option: --ldflags $2"
+            shift 2
+            ;;
+        --clean)
+            conf[clean]="clean"
+            echo "found option: --clean"
+            echo "this options is not implemented jet :-("
+            shift
+            ;;
+        --distclean)
+            conf[clean]="distclean"
+            echo "found option: --clean"
+            echo "this options is not implemented jet :-("
+            shift
+            ;;
+        --uninstall)
+            conf[clean]="uninstall"
+            echo "found option: --clean"
+            echo "this options is not implemented jet :-("
+            shift
+            ;;
         -h|--help)
             echo ""
             help
@@ -258,7 +295,7 @@ done
 
 #parse action parameter
 debug 1 "action: $1"
-if [[ "$1" == @(build|update|devupdate|fromscratch|list) ]]; then
+if [[ "$1" == @(build|update|devupdate|fromscratch|list|uninstall) ]]; then
     conf[action]="$1"
     echo "selected action is ${conf[action]}"
     shift
@@ -379,6 +416,12 @@ src_path=${conf[git_e17_path]}/e.org.git
 build_path=${conf[git_e17_path]}/build
 log_path=${conf[git_e17_path]}/log
 
+# additional CFLAGS
+cflags=-g
+# additional LDFLAGS
+#ldflags=
+# clean: clean, distclean, unistall
+#clean=distclean
 # packetlist to use basic, full
 packetlist=full
 # branch to checkout
@@ -533,6 +576,18 @@ for key in ${!conf[@]}; do
 done
 debug_cfg
 } #}}}
+
+### uninstall e17
+uninstall(){ #{{{
+debug 1 "$FUNCNAME() $*"
+#
+# This functions uninstall e17
+#
+sechtion " uninstalling e17 "
+echo "not implemented :("
+exit 0
+} #}}}
+
 
 ### functions that scan source code and select packages to be build
 ### TODO SPLIT FUNCTION
@@ -695,9 +750,9 @@ export PKG_CONFIG_PATH="$install_path/lib/pkgconfig:$PKG_CONFIG_PATH"
 echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
 export CPPFLAGS="$CPPFLAGS -I$install_path/include"
 echo "CPPFLAGS=$CPPFLAGS"
-export LDFLAGS="$LDFLAGS -L$install_path/lib"
+export LDFLAGS="$LDFLAGS -L$install_path/lib ${conf[ldflags]}"
 echo "LDFLAGS=$LDFLAGS"
-export CFLAGS="$CFLAGS"
+export CFLAGS="$CFLAGS ${conf[cflags]}"
 echo "CFLAGS=$CFLAGS"
 export PYTHONPATH="$(python -c "import distutils.sysconfig; print distutils.sysconfig.get_python_lib(prefix='$install_path')" 2>/dev/null)"
 echo "PYTHONPATH=$PYTHONPATH"
@@ -705,6 +760,10 @@ export PYTHONINCLUDE="$(python -c "import distutils.sysconfig; print distutils.s
 echo "PYTHONINCLUDE=$PYTHONINCLUDE"
 export NOCONFIGURE="true"
 echo "NOCONFIGURE=$NOCONFIGURE"
+
+if ${conf[verbose]}; then
+    sleep 5
+fi
 
 echo 'checking existence of $install_path/share/aclocal $PYTHONPATH $PYTHONINCLUDE ... '
 local failed=false
@@ -963,7 +1022,8 @@ if ! $g_current_failed; then
         return
     #if a more verbose mode is used
     elif ${conf[verbose]} || ${conf[dev]} ; then
-        echo -e "  - RUNNING: ${bold}$@${boldoff} ... \n"
+        echo -e "  - RUNNING: ${bold}$@${boldoff} ... "
+        echo -e "         IN: $(pwd)\n"
         sleep 2
         if ! nice -n "${conf[nice]}" bash -c "$@" &> >(tee -a "$log_file"); then
             g_current_failed=true
@@ -1004,7 +1064,7 @@ distcheck(){
 section " build dependences check "
 #echo -e "${bold}checking distribution ...${boldoff}"
 debug 1 "$FUNCNAME() $*"
-[[ "$@" != "distcheck" ]] && return
+[[ "$@" != "check" ]] && return
 
 #check for programs
 #find  distribution
@@ -1073,10 +1133,10 @@ deps_debian_common+="giblib-dev libtool libtagc0-dev libmpd1 libmpd-dev libxcomp
 deps_debian_common+="libxdamage1 libxkbfile-dev libxkbfile1 libxkbfile-dev libxkbfile1 libdbus-1-dev libtheora-dev libpopt-dev "
 deps_debian_common+="libglib2.0-dev libfontconfig1-dev libxrandr-dev libasound2-dev libxinerama-dev cvs automake libgstreamer0.10-dev menu "
 deps_debian_common+="menu-xdg xdg-utils liblua5.1-0-dev dbus-x11 libexif-dev mesa-common-dev libudev-dev cython "
-deps_debian_common+="libxcb-shape0-dev"
+deps_debian_common+="libxcb-shape0-dev python-dev libcanberra-dev libtuxcap-dev"
 
 ##TODO finish the lists
-local stable="libpam-dev libiptcdata-dev libcurl4-gnutls-dev libsdl-dev"
+local stable="libpam-dev libiptcdata-dev libcurl4-gnutls-dev libsdl-dev "
 local sid="libpam0g-dev libiptcdata0-dev libcurl4-openssl-dev libsdl1.2-dev"
 
 ## use this for now

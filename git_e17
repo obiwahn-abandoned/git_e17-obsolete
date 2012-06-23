@@ -881,15 +881,22 @@ for pkg in $packages; do
         fix_pkg "$pkg" "$cpath" "/trunk" "$bpath"
 
       ###compile it!
-        compile "$pkg" "$cpath" "/trunk" "$bpath"
+        declare -g g_retry=true
+        while $g_retry; do
+            g_retry=false
+            compile "$pkg" "$cpath" "/trunk" "$bpath"
+            #for animation
+            if $g_current_failed && ${conf[animate]}; then
+                msg_ani "FAILED"
+                pkg_err "Failed to build $pkg"
+                $gretry && write_appname "$pkg"
+            fi
+        done
       ####
-
         if $g_current_failed; then
             packages_failed="$packages_failed $pkg"
-            msg_ani "FAILED"
-            # in other modes a more detailed report will be given
-            ${conf[animate]} && nerr "Failed to build $pkg"
         else
+            #for animation
             msg_ani "OK"
         fi
     fi
@@ -1160,7 +1167,7 @@ if ! $g_current_failed; then
     echo
     tail -n 30 "$log_file"
     echo
-    $g_clean_phase || nerr "Failed to build $pkg"
+    $g_clean_phase || pkg_err "Failed to build $pkg"
 fi #end of prechecks of
 } #}}}
 
@@ -1477,6 +1484,38 @@ while true; do
     esac
 done
 }
+
+pkg_err(){
+debug 1 "$FUNCNAME() $*"
+[[ ${conf[on_error]} == "skip" ]] && return
+g_current_failed=true
+err "$@"
+case ${conf[on_error]} in
+    exit)
+        exit 1
+        ;;
+    ask)
+        while true; do
+            read -p "$@ (y/n/retry) " yn
+            case "$yn" in
+                [Yy]*)
+                    break
+                    ;;
+                [Nn]*)
+                    exit 1
+                    ;;
+                [Rr]*)
+                    declare -g g_retry=true
+                    break 1
+                    ;;
+                *) echo "Please answer with yes, no, retry." 1>&2 ;;
+            esac
+        done
+        echo
+        ;;
+esac
+}
+
 
 ## helper debuging
 debug(){

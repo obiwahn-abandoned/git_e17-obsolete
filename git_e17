@@ -842,7 +842,7 @@ for pkg in $packages; do
     #find src
     find_local_path "$pkg" "/trunk"
     local cpath="${conf[current_package_path]}"
-    local bpath="${conf[build_path]}/$pkg"
+    local bpath="${conf[build_path]}"
     if [[ -z "$cpath" ]]; then
         nerr "source path of of package $pkg not found"
         msg_ani "SKIP"
@@ -1139,6 +1139,7 @@ fi #end of prechecks of
 
 
 fix_pkg(){
+debug 1 "$FUNCNAME() $*"
 local pkg="$1"
 local cpath="$2"
 local coff="$3"
@@ -1150,7 +1151,7 @@ bpath="$bpath/$pkg"
 case $pkg in
     drawer|itask|winlist-ng|enlil|enki)
         msg -n "  - fixing ... "
-        rsync -av  --exclude=* --include=*.png --include=*.png "$cpath/" "$dpath/" &>/dev/null
+        rsync -av "$cpath/" "$bpath/" &>/dev/null
         msg "PRAY!"
         ;;
 esac

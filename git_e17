@@ -1295,7 +1295,7 @@ local missing=""
 
 echo -e "\n ### This check should work for Debian wheezy/sid and Ubuntu precise ###"
 echo -e "\ndependences:"
-echo "$deps_debian_sid\n"
+echo -e "$deps_debian_sid\n"
 
 echo -en "\n\nchecking ... "
 for dep in $deps_debian_sid; do
@@ -1307,7 +1307,7 @@ done
 
 
 if [[ $missing ]]; then
-    echo -e "failed\n\nThe following packages are missing:\n$missing\n"
+    echo -e "failed\n\nThe following packages are missing:\n${missing}\n"
     if (( $(id -u) == 0 )); then
         if [[ $(ask_yn "do you want to install the missing packages?") == "yes" ]]; then
             apt-get install $missing || exit 1

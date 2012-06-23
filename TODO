@@ -1,14 +1,12 @@
 TODO
 Options:
---clean 
---distclean
---uninstall
---clags
---ldfalgs
 
-- management of failed packages
 - usage
+- management of failed packages
 
-- distchecks
 - action: list
-- action: usage 
+- action: usage
+- actions: uninstall fromscratch
+
+plugins
+fix for edjecc

@@ -41,12 +41,17 @@ g_old_commit=""
 # signales return status of some operations as
 # we lack proper return values
 g_current_failed=false
+g_clean_phase=false
 
 conf[dev]=false
 conf[verbose]=false
 conf[debug]=false
 conf[debug_level]=10
 conf[animate]=false
+
+conf[clean]=false
+conf[distclean]=false
+conf[uninstall]=false
 
 #for use in errors
 e="\n       "
@@ -261,26 +266,23 @@ do
             shift 2
             ;;
         --ldflags)
-            conf[ldlags]="$2"
+            conf[ldflags]="$2"
             echo "found option: --ldflags $2"
             shift 2
             ;;
         --clean)
-            conf[clean]="clean"
+            conf[clean]=true
             echo "found option: --clean"
-            echo "this options is not implemented jet :-("
             shift
             ;;
         --distclean)
-            conf[clean]="distclean"
-            echo "found option: --clean"
-            echo "this options is not implemented jet :-("
+            conf[distclean]=true
+            echo "found option: --distclean"
             shift
             ;;
         --uninstall)
-            conf[clean]="uninstall"
-            echo "found option: --clean"
-            echo "this options is not implemented jet :-("
+            conf[uninstall]=true
+            echo "found option: --uninstall"
             shift
             ;;
         -i | --ignore)
@@ -920,16 +922,16 @@ local src_path="${conf[src_path]}/trunk/$2"
 debug 1 "srcpath: $src_path"
 local build_path="${conf[build_path]}/$1"
 debug 1 "build_path: $build_path"
-g_current_failed=false
-local log_file="${conf[log_path]}/$pkg.log"
 
-#delete old log file
-[[ -e "$log_file" ]] && rm "$log_file"
+g_current_failed=false
 
 local install_path="${conf[install_path]}"
 local pkg_conf_args="${conf["${pgk}_conf_args"]}"
 local build_type=""
-unset PREFIX
+local log_file="${conf[log_path]}/$pkg.log"
+[[ -e "$log_file" ]] && rm "$log_file"
+
+# find type of build process
 if   [ -e "$src_path/autogen.sh" ];
     then build_type="autogen"
 elif [ -e "$src_path/bootstrap" ];
@@ -938,46 +940,71 @@ elif [ -e "$src_path/Makefile.PL" ];
     then build_type="perl"
 elif [ -e "$src_path/Makefile" ]; then
     build_type="make"
-	export PREFIX="${conf[install_path]}"
+    export PREFIX="${conf[install_path]}"
 elif [ -e "$src_path/setup.py" ];
     then build_type="python"
+else
+    export PREFIX=""
 fi
 
 debug 1 "Type of build system $build_type"
 
-#use the power of ;;& - muahahh
-#UGLY HACK!!
+declare -g g_clean_phase=true
 case "$build_type" in
-    autogen)
-        run_cmd "$pkg" "$src_path" "" "autogen" "./autogen.sh"
+    autogen|bootstrap)
+        ${conf[clean]}     && run_cmd "$pkg" "$src_path" "$build_path" "make clean"     "make clean"
+        g_current_failed=false
+        ${conf[distclean]} && run_cmd "$pkg" "$src_path" "$build_path" "make distclean" "make distclean"
+        g_current_failed=false
+        ${conf[uninstall]} && run_cmd "$pkg" "$src_path" "$build_path" "make uninstall" "make uninstall"
+        g_current_failed=false
         ;;&
-    bootstrap)
-        run_cmd "$pkg" "$src_path" "" "boostrap" "./bootstrap"
-        ;;&
-    perl)
-        run_cmd "$pkg" "$src_path" "$build_path" "perlmake" "perl $src_path/Makefile.PL prefix=$install_path"
-        ;;&
-    autogen|bootstrap) #configure
-        $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "configure" "$src_path/configure --prefix=$install_path $pgk_conf_args"
-        ;;&
-    autogen|bootstrap|perl) # make && make install
-		$g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "make" "make -j ${conf[threads]}"
-		$g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "install" "make install"
-        ;;
-    make) # make && make install
-		run_cmd "$pkg" "$src_path" "" "make" "$make_extra make -j ${conf[threads]}"
-		$g_current_failed || run_cmd "$pkg" "$src_path" "" "install" "make install"
-        ;;
-    python)
-		run_cmd "$pkg" "$src_path" "" "setup.py-build" "python setup.py build build_ext --include-dirs=$PYTHONINCLUDE $pkg_conf_args"
-		$g_current_failed || run_cmd "$pkg" "$src_path" "" "setip-py-install" "python setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
+    make|perl)
+        ${conf[clean]}     && run_cmd "$pkg" "$src_path" "" "make clean"     "make clean"
+        g_current_failed=false
+        ${conf[uninstall]} && run_cmd "$pkg" "$src_path" "" "make uninstall" "make uninstall"
+        g_current_failed=false
         ;;
     *)
-        msg echo "no build system found"
-        msg_ani -n " (no build system) - "
-        g_current_failed=true
-        return
+        :
+        ;;
 esac
+g_clean_phase=false
+g_current_failed=false
+
+#use the power of ;;& - muahahh
+#UGLY HACK!!
+  case "$build_type" in
+      autogen)
+          run_cmd "$pkg" "$src_path" "" "autogen" "./autogen.sh"
+          ;;&
+      bootstrap)
+          run_cmd "$pkg" "$src_path" "" "boostrap" "./bootstrap"
+          ;;&
+      perl)
+          run_cmd "$pkg" "$src_path" "$build_path" "perlmake" "perl $src_path/Makefile.PL prefix=$install_path"
+          ;;&
+      autogen|bootstrap) #configure
+          $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "configure" "$src_path/configure --prefix=$install_path $pgk_conf_args"
+          ;;&
+      autogen|bootstrap|perl) # make && make install
+        $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "make" "make -j ${conf[threads]}"
+        $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "install" "make install"
+          ;;
+      make) # make && make install
+        run_cmd "$pkg" "$src_path" "" "make" "$make_extra make -j ${conf[threads]}"
+        $g_current_failed || run_cmd "$pkg" "$src_path" "" "install" "make install"
+          ;;
+      python)
+        run_cmd "$pkg" "$src_path" "" "setup.py-build" "python setup.py build build_ext --include-dirs=$PYTHONINCLUDE $pkg_conf_args"
+        $g_current_failed || run_cmd "$pkg" "$src_path" "" "setip-py-install" "python setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
+          ;;
+      *)
+          msg echo "no build system found"
+          msg_ani -n " (no build system) - "
+          g_current_failed=true
+          return
+  esac
 
 } #}}}
 
@@ -1017,14 +1044,22 @@ else
     cd "$src" || on_error "unable to cd into $src"
 fi
 
+
 ## check if makefile is available
-if [[ ${tilte%% *} == make ]]; then
+if [[ $title == "make"* ]]; then
     if ! [[ -e Makefile || -e makefile ]]; then
     #TODO - elif check source dir and cd into it
         g_current_failed=true
+        #We will not fail in clean_phase
         ${conf[animate]} && return
-        msg "Failed"
-        nerr "No makefile - failed to build $pkg"
+        msg -n "  - $title ... "
+        if $g_clean_phase; then
+            msg  "FAILED - make may fail during clean phase"
+        else
+            msg  "FAILED"
+            nerr "No makefile - failed to build $pkg"
+        fi
+        return
     fi
 fi
 
@@ -1088,7 +1123,7 @@ if ! $g_current_failed; then
     echo
     tail -n 30 "$log_file"
     echo
-    nerr "Failed to build $pkg"
+    $g_clean_phase || nerr "Failed to build $pkg"
 fi #end of prechecks of
 } #}}}
 
@@ -1361,14 +1396,15 @@ err(){ echo; echo -n "Error: "; echo "$@"; }
 #fatal error
 ferr(){ err "$@"; exit 1; }
 #non fatal error
+
 nerr(){
 debug 1 "$FUNCNAME() $*"
-g_current_failed=true
 [[ ${conf[on_error]} == "skip" ]] && return
+g_current_failed=true
 err "$@"
 case ${conf[on_error]} in
     exit) exit 1 ;;
-ask)  local rv="$(ask_yn "The Programm encountered an error - do you want to continue?")"; [[ "$rv" == "no" ]] && exit 1 ;;
+    ask)  local rv="$(ask_yn "The Programm encountered an error - do you want to continue?")"; [[ "$rv" == "no" ]] && exit 1 ;;
 esac
 }
 
@@ -1438,8 +1474,8 @@ del_word(){
 cnt=0
 max=${#1}
 while (( cnt < max )); do
-	echo -n -e "\b \b"
-	(( cnt++ ))
+    echo -n -e "\b \b"
+    (( cnt++ ))
 done
 }
 rotate ()
@@ -1453,79 +1489,79 @@ echo -n "$name"
 echo -n "     "
 while [[ "$(ps -p $pid -o comm=)" ]]; do
     last_line=$(tail -1 "$log_file")
-	if [[ "$log_line" != "$last_line" ]]; then
-				echo -e -n "\b\b\b\b\b"
-				case $animation_state in
-					1)
-						echo -n "["
-						echo -n -e "\033[1m"
-						echo -n "\\o\\"
-						echo -n -e "\033[0m"
-						echo -n "]"
-						animation_state=2
-						;;
-					2)
-						echo -n "["
-						echo -n -e "\033[1m|o|\033[0m"
-						echo -n "]"
-						animation_state=3
-						;;
-					3)
-						echo -n "["
-						echo -n -e "\033[1m/o/\033[0m"
-						echo -n "]"
-						animation_state=4
-						;;
-					4)
-						echo -n "["
-						echo -n -e "\033[1m|o|\033[0m"
-						echo -n "]"
-						animation_state=5
-						;;
-					5)
-						echo -n "["
-						echo -n -e "\033[1m"
-						echo -n "\\o/"
-						echo -n -e "\033[0m"
-						echo -n "]"
-						animation_state=6
-						;;
-					6)
-						echo -n "["
-						echo -n -e "\033[1m|o|\033[0m"
-						echo -n "]"
-						animation_state=1
-						;;
+    if [[ "$log_line" != "$last_line" ]]; then
+                echo -e -n "\b\b\b\b\b"
+                case $animation_state in
+                    1)
+                        echo -n "["
+                        echo -n -e "\033[1m"
+                        echo -n "\\o\\"
+                        echo -n -e "\033[0m"
+                        echo -n "]"
+                        animation_state=2
+                        ;;
+                    2)
+                        echo -n "["
+                        echo -n -e "\033[1m|o|\033[0m"
+                        echo -n "]"
+                        animation_state=3
+                        ;;
+                    3)
+                        echo -n "["
+                        echo -n -e "\033[1m/o/\033[0m"
+                        echo -n "]"
+                        animation_state=4
+                        ;;
+                    4)
+                        echo -n "["
+                        echo -n -e "\033[1m|o|\033[0m"
+                        echo -n "]"
+                        animation_state=5
+                        ;;
+                    5)
+                        echo -n "["
+                        echo -n -e "\033[1m"
+                        echo -n "\\o/"
+                        echo -n -e "\033[0m"
+                        echo -n "]"
+                        animation_state=6
+                        ;;
+                    6)
+                        echo -n "["
+                        echo -n -e "\033[1m|o|\033[0m"
+                        echo -n "]"
+                        animation_state=1
+                        ;;
 
-				esac
-		log_line=$last_line
-	fi
-	sleep 1
+                esac
+        log_line=$last_line
+    fi
+    sleep 1
 done
 del_word "$name[|-|]"
 }
 function write_appname ()
 {
-	name="$1"
-	hidden=$2
-	cnt="${#name}"
-	max=28
+    name="$1"
+    hidden=$2
+    cnt="${#name}"
+    max=28
 
-	if [ "$hidden" ]; then
-		c=-3
-		while [ ! $c = $cnt ]; do
-			echo -n " "
-			c=$(($c+1))
-		done
-	else
-		echo -n "- $name "
-	fi
+    if [ "$hidden" ]; then
+        c=-3
+        while [ ! $c = $cnt ]; do
+            echo -n " "
+            c=$(($c+1))
+        done
+    else
+        echo -n "- $name "
+    fi
 
-	while [ ! $cnt = $max ]; do
-		echo -n "."
-		cnt=$(($cnt+1))
-	done
-	echo -n " "
+    while [ ! $cnt = $max ]; do
+        echo -n "."
+        cnt=$(($cnt+1))
+    done
+    echo -n " "
 }
 
 ### END HELPER FUNCTIONS }}}

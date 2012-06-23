@@ -30,6 +30,7 @@ packages_half="$efl_basic $bin_basic $e_themes $e_modules_efl $e_modules_bin $e_
 packages_full="$efl_basic $bin_basic $e_themes $e_modules_efl $e_modules_bin $e_modules_extra $efl_extra $bin_extra"
 
 declare -A conf
+declare -A g_old_conf
 
 packages=""
 packages_failed=""
@@ -194,6 +195,8 @@ section " reading command line options "
 # TODO - idiot proof checking of arguments
 #
 
+copy_cfg
+
 while :
 do
     case $1 in
@@ -322,6 +325,8 @@ if [[ "$1" == only ]]; then
     echo "only: $packages"
 fi
 
+echo
+print_cfg
 debug_cfg
 } #}}}
 
@@ -338,6 +343,8 @@ section "reading global configuration in ~/.git_e17"
 # Out:
 #   sets: conf[git_e17_path], conf[config_file]
 #
+copy_cfg
+
 debug 1 "git e17 path: $1"
 if [[ ! -f $HOME/.git_e17 ]]; then
     cat > "$HOME/.git_e17" << EOF
@@ -390,8 +397,8 @@ if ! [[ -d "${conf[git_e17_path]}" && -w "${conf[git_e17_path]}" ]]; then
     fi
 fi
 
-
-debug_cfg
+echo
+print_cfg
 } #}}}
 
 ### read configuration in git e17 directory
@@ -405,6 +412,8 @@ section " reading git-e17-path configuration file (${conf[config_file]}) "
 # sets: ... a lot ...
 #
 #
+
+copy_cfg
 
 local conf_file="${conf[git_e17_path]}/${conf[config_file]}"
 if [[ ! -f "$conf_file" ]]; then
@@ -433,8 +442,8 @@ cflags=-g
 #ldflags=
 # clean: clean, distclean, unistall
 #clean=distclean
-# packetlist to use basic, full
-packetlist=full
+# packagelist to use basic, full
+packagelist=full
 # branch to checkout
 #branch=master
 # remote to pull from
@@ -465,7 +474,7 @@ else
         conf["$item"]=${conf["$item"]:-"$value"}
     done <<< "$config"
 fi
-debug_cfg
+print_cfg
 } #}}}
 
 ### read rest of ~/.git_e17 - sets only overwrite unset options
@@ -475,13 +484,16 @@ section " reading global cfg options "
 #
 # add global configuration
 #
+
+copy_cfg
+
 debug 1 "$FUNCNAME() $*"
     config="$(grep -v ^# < "$HOME/.git_e17" | grep -v ^$)"
     debug 3 "$config"
     while IFS='=' read -r item value; do
         conf["$item"]=${conf["$item"]:-"$value"}
     done <<< "$config"
-debug_cfg
+print_cfg
 }
 ### assign default values
 assign_defaults(){
@@ -505,7 +517,7 @@ if [[ ! $packages ]]; then
         *)     ferr "No valid package list packagelist=full|half|basic" ;;
     esac
 fi
-
+print_cfg
 } #}}}
 
 interpret_action(){
@@ -782,6 +794,7 @@ export PYTHONINCLUDE="$(python -c "import distutils.sysconfig; print distutils.s
 echo "PYTHONINCLUDE=$PYTHONINCLUDE"
 export NOCONFIGURE="true"
 echo "NOCONFIGURE=$NOCONFIGURE"
+echo
 
 if ${conf[verbose]}; then
     sleep 5
@@ -1155,7 +1168,7 @@ deps_debian_common+="giblib-dev libtool libtagc0-dev libmpd1 libmpd-dev libxcomp
 deps_debian_common+="libxdamage1 libxkbfile-dev libxkbfile1 libxkbfile-dev libxkbfile1 libdbus-1-dev libtheora-dev libpopt-dev "
 deps_debian_common+="libglib2.0-dev libfontconfig1-dev libxrandr-dev libasound2-dev libxinerama-dev cvs automake libgstreamer0.10-dev menu "
 deps_debian_common+="menu-xdg xdg-utils liblua5.1-0-dev dbus-x11 libexif-dev mesa-common-dev libudev-dev cython "
-deps_debian_common+="libxcb-shape0-dev python-dev libcanberra-dev libtuxcap-dev"
+deps_debian_common+="libxcb-shape0-dev python-dev libcanberra-dev libtuxcap-dev chipmunk-dev"
 
 ##TODO finish the lists
 local stable="libpam-dev libiptcdata-dev libcurl4-gnutls-dev libsdl-dev "
@@ -1258,6 +1271,35 @@ section(){
     for (( n=1 ; n <= (fill+rest) ; n++ )); do echo -n "$fill_symbol" ; done
     echo
     set +e
+}
+
+## print configuration
+copy_cfg(){
+unset g_old_conf
+declare -g -A g_old_conf
+for key in "${!conf[@]}"; do
+    g_old_conf["$key"]="${conf["$key"]}"
+done
+}
+
+print_cfg(){
+local changed=false
+
+local changes="$(
+for item in "${!conf[@]}"; do
+    if [[ "${conf["$item"]}" != "${g_old_conf["$item"]}" ]]; then
+        echo "$item=${conf["$item"]}"
+        changed=true
+    fi
+done)"
+
+if [[ "$changes" ]]; then
+    echo "The following Configuration items changed:"
+    echo "$changes"
+else
+    echo "The configuration did not Change!"
+fi
+
 }
 
 echo_padd(){

@@ -841,7 +841,8 @@ for pkg in $packages; do
 
     #find src
     find_local_path "$pkg" "/trunk"
-    cpath=${conf[current_package_path]}
+    local cpath="${conf[current_package_path]}"
+    local bpath="${conf[build_path]}/$pkg"
     if [[ -z "$cpath" ]]; then
         nerr "source path of of package $pkg not found"
         msg_ani "SKIP"
@@ -849,8 +850,13 @@ for pkg in $packages; do
     else
         #for animation
         ${conf[animate]} && write_appname "$pkg"
-        #compile it!
-        compile "$pkg" "$cpath"
+
+        fix_pkg "$pkg" "$cpath" "/trunk" "$bpath"
+
+      ###compile it!
+        compile "$pkg" "$cpath" "/trunk" "$bpath"
+      ####
+
         if $g_current_failed; then
             packages_failed="$packages_failed $pkg"
             msg_ani "FAILED"
@@ -917,8 +923,10 @@ fi
 compile(){ #{{{
 debug 1 "$FUNCNAME() $*"
 local pkg="$1"
+local src_path="$2"
+local src_off="$3"
 debug 1 "package: $pkg"
-local src_path="${conf[src_path]}/trunk/$2"
+local src_path="${conf[src_path]}${src_off}/$src_path"
 debug 1 "srcpath: $src_path"
 local build_path="${conf[build_path]}/$1"
 debug 1 "build_path: $build_path"
@@ -1066,6 +1074,8 @@ fi
 log_file="${conf[log_path]}/$pkg.log"
 debug 1 "running in path: $(pwd)"
 
+echo -e "\n\ngit_e17 - $title \n$* \n\n" >>"$log_file"
+
 #run only if pre checks did not fail
 if ! $g_current_failed; then
     #if animation mode is used
@@ -1108,7 +1118,7 @@ if ! $g_current_failed; then
     #if normal mode is used
     else
         msg -n "  - $title ... "
-        if ! nice -n "${conf[nice]}" bash -c "$@" &>"$log_file"; then
+        if ! nice -n "${conf[nice]}" bash -c "$@" &>>"$log_file"; then
                 g_current_failed=true
         else
             if tail -n 20 "$log_file" | grep -q -i error &> /dev/null; then
@@ -1126,6 +1136,26 @@ if ! $g_current_failed; then
     $g_clean_phase || nerr "Failed to build $pkg"
 fi #end of prechecks of
 } #}}}
+
+
+fix_pkg(){
+local pkg="$1"
+local cpath="$2"
+local coff="$3"
+local bpath="$4"
+
+cpath="${conf[src_path]}${coff}/$cpath"
+bpath="$bpath/$pkg"
+
+case $pkg in
+    drawer|itask|winlist-ng|enlil|enki)
+        msg -n "  - fixing ... "
+        rsync -av  --exclude=* --include=*.png --include=*.png "$cpath/" "$dpath/" &>/dev/null
+        msg "PRAY!"
+        ;;
+esac
+}
+
 
 ##### functions used in main }}}
 

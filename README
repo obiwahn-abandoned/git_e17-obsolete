@@ -2,9 +2,9 @@ git_e17 - The enlightenment install script
 
 Requirements: BASH4, git
 
-This Scripts is based on Morlenxus' easy_e17.sh
-It shares some of it's ideas as well as some code.
-The original script can be found at:
+This Scripts is inspired by Morlenxus' easy_e17.sh
+and also a tiny bit of code is thaken form it.
+The easy script can be found at:
 http://omicron.homeip.net/projects/#easy_e17.sh
 
 License: BSD licence
@@ -14,23 +14,34 @@ Coded by Jan Christoph Uhde (linux@obiwahn.org)
 
 Usage examples:
 
-./git_e17 -s -a build
-    Get and build the whole window manager in animation mode
-    and skip non fatal errors.
-
 ./git_e17 update
-    Get the latest version
-
+    Get the latest version.
     This uses --fetch-reset-hard so it will wipe you changes!!!!
 
+./git_e17 -s -a build
+    Build in animation mode and skip non fatal errors.
+
 ./git_e17 devupdate
-    update only files that changed but are not in you index
+    Update only files that changed but are not in your index.
+    Show the 30 last lines of and error and asks what to.
 
-./git build only eina evas
-    build only eina and evas show parts of the build log on errors and
-    ask what to do when an error is encountered
+./git -v build only eina evas
+    Build only eina and evas and show full command output.
+    Also ask what to do when an error is encountered
 
-./git_e17 --git-e17-path /path/to/alternate/git_17_dir --pull --remote raster --branch terminology devupdate only terminology
-or
-./git -conf raster_term devupdate .oO(i would create a separate config:P)
+./git_e17 --pull --remote raster --branch terminology devupdate only terminology
+./git -conf raster_term devupdate
+    pull changes form remote raster and build only the package terminology
+
+
+You should write extra configuration files there you can specify:
+ + per package configure arguments
+ + install_path
+ + build_path
+ + CFLAGS
+ + LDFALGS
+
+ -checkout
+    the way git is you do not have multiple checkouts
+    maybe i can do something for you with core.worktree ...
 

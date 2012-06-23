@@ -1165,10 +1165,11 @@ local deps_debian_sid="$deps_debian_common $sid"
 local pkg_list="$(dpkg -l)"
 local missing=""
 
-echo -e "\n ### checking for SID only ###"
-echo -e "\ndependences in sid:"
-echo "$deps_debian_sid"
+echo -e "\n ### This check should work for Debian wheezy/sid and Ubuntu precise ###"
+echo -e "\ndependences:"
+echo "$deps_debian_sid\n"
 
+echo -en "\n\nchecking ... "
 for dep in $deps_debian_sid; do
     if ! echo "$pkg_list" | grep -q -E "^ii\s*$dep" &>/dev/null ; then
         missing+="$dep "
@@ -1178,14 +1179,16 @@ done
 
 
 if [[ $missing ]]; then
-    echo -e "\n\nThe following packages are missing:\n$missing\n"
+    echo -e "failed\n\nThe following packages are missing:\n$missing\n"
     if (( $(id -u) == 0 )); then
         if [[ $(ask_yn "do you want to install the missing packages?") == "yes" ]]; then
-            apt-get install "$missing"
+            apt-get install $missing || exit 1
         fi
     else
-        exit 1
+        sleep 10
     fi
+else
+    echo ok
 fi
 
 }

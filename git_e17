@@ -549,6 +549,7 @@ case "$action" in
         (( $(id -u) = 0 )) && echo "idiot!!!" && exit 666
         rm -fr "${conf[install_path]}"
         rm -fr "${conf[build_path]}"
+        rm -fr "${conf[src_path]}/trunk"
         conf[fetch]=true
         conf[action]="update"
         ;;
@@ -608,10 +609,36 @@ uninstall(){ #{{{
 debug 1 "$FUNCNAME() $*"
 [[ ${conf[action]} == uninstall ]] || return
 #
-# This functions uninstall e17
+# This functions uninstalls e17
 #
 section " uninstalling e17 "
-echo "not implemented :("
+
+#
+# ok this is is frigging ugly:P - but it works :E
+#
+
+#enter build dir
+cd "${conf[build_path]}" || { echo "uninstall failed"; exit 1; }
+
+for dir in * ; do
+    #change dir
+    if ! cd "$dir" &>/dev/null ; then
+        echo "failed to uninstall $dir"
+        continue
+    fi
+    #test for makefile
+    if [[ -e Makefile || -e makefile ]]; then
+        write_appname "$dir"
+        #uninstall
+        nice -n "${conf[nice]}" bash -c "make uninstall" &>>"${conf[log_path]}/uninstall.log" &
+        rotate $! "" "${conf[log_path]}/uninstall.log"
+        wait
+        echo OK
+    else
+        echo FAILED
+    fi
+    cd ..
+done
 exit 0
 } #}}}
 

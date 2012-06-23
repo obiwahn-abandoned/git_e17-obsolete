@@ -3,7 +3,7 @@ General
     management of failed packages
 
 Actions
-    uninstall fromscratch list
+    list
     usage
 
 Plugins:

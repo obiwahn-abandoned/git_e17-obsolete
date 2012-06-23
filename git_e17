@@ -794,7 +794,7 @@ echo "not implemented"
 }
 
 pkg_failed(){
-echo "Adding $! to failed list/file/conf entry wahtever (not implemented)"
+echo "Adding $1 to failed list/file/conf entry wahtever (not implemented)"
 }
 
 ignore_pkgs(){
@@ -899,12 +899,14 @@ for pkg in $packages; do
             if $g_current_failed && ${conf[animate]}; then
                 msg_ani "FAILED"
                 pkg_err $pkg "Failed to build $pkg"
-                $gretry && write_appname "$pkg"
+                $g_retry && write_appname "$pkg"
             fi
         done
       ####
         if $g_current_failed; then
-            packages_failed="$packages_failed $pkg"
+            #
+            # ADD PKG TO FAILED
+            pkg_failed $pkg
         else
             #for animation
             msg_ani "OK"
@@ -1503,14 +1505,14 @@ pkg_err(){
 debug 1 "$FUNCNAME() $*"
 [[ ${conf[on_error]} == "skip" ]] && return
 g_current_failed=true
-local pkg=$1
+local pkg="$1"
 shift
 err "$@"
 case ${conf[on_error]} in
     exit)
         #
         # ADD PGK TO FAILED
-        pkg_failed $pkg
+        pkg_failed "$pkg"
         exit 1
         ;;
     ask)
@@ -1522,15 +1524,12 @@ case ${conf[on_error]} in
                     break 1
                     ;;
                 [Yy]*)
-                    #
-                    # ADD PKG TO FAILED
-                    pkg_failed $pkg
                     break
                     ;;
                 [Nn]*)
                     #
                     # ADD PKG TO FAILED
-                    pkg_failed $pkg
+                    pkg_failed "$pkg"
                     exit 1
                     ;;
                 *) echo "Please answer with yes, no, retry." 1>&2 ;;
@@ -1539,9 +1538,6 @@ case ${conf[on_error]} in
         echo
         ;;
     *)
-        #
-        # ADD PKG TO FAILED
-        pkg_failed $pkg
         ;;
 esac
 }

@@ -613,6 +613,8 @@ local src_path="${conf[src_path]}"
 local git="${conf[git_repo]}"
 local remote="${conf[remote]}"
 
+rm -fr "${conf[git_e17_path]}/git.log"
+
 #does the repo exist
 if [[ ! -d ${conf[src_path]} ]]; then
     #create it
@@ -652,11 +654,11 @@ if [[ -n "$branch" && "$branch" != "$g_current_branch" ]]; then
 fi
 
 echo "git fetch $remote"
-git fetch $remote | tee "${conf[git_e17_path]}/git.log" || nerr "git fetch"
+git fetch $remote | tee -a "${conf[git_e17_path]}/git.log" || nerr "git fetch"
 
 git clean -f -d &> /dev/null
 echo "git reset --hard  $remote/$branch"
-git reset --hard "$remote/$branch" | tee "${conf[git_e17_path]}/git.log" || nerr "git reset --hard failed"
+git reset --hard "$remote/$branch" | tee -a  "${conf[git_e17_path]}/git.log" || nerr "git reset --hard failed"
 
 } #}}}
 
@@ -665,7 +667,7 @@ debug 1 "$FUNCNAME() $*"
 ${conf[pull]} || return
 section " git pull --no-commit "
 section " dear god we all hope there are no conflicts "
-git pull --no-commit $remote | tee "${conf[git_e17_path]}/git.log" || nerr "git pull failed"
+git pull --no-commit $remote | tee -a "${conf[git_e17_path]}/git.log" || nerr "git pull failed"
 } #}}}
 
 calculate_updates(){ #{{{
@@ -813,7 +815,7 @@ section " entering build phase "
 echo -e "The following packages will be build:\n"
 echo_long "$packages"
 echo
-exit
+
 for pkg in $packages; do
     msg "- trying to build $pkg ..."
 

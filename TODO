@@ -1,12 +1,10 @@
 TODO
-Options:
+General
+    management of failed packages
 
-- usage
-- management of failed packages
+Actions
+    uninstall fromscratch list
+    usage
 
-- action: list
-- action: usage
-- actions: uninstall fromscratch
-
-plugins
-fix for edjecc
+Plugins:
+    enesim

@@ -83,6 +83,7 @@ get_src
 git_fetch_reset
 git_pull
 ## package management
+add_failed
 ignore_pkgs
 if ! [[ "$packages" ]]; then
     echo -e "\nNo packages to build!\n"
@@ -787,6 +788,15 @@ else
 fi
 } #}}}
 
+add_failed(){
+section " looking for failed packages "
+echo "not implemented"
+}
+
+pkg_failed(){
+echo "Adding $! to failed list/file/conf entry wahtever (not implemented)"
+}
+
 ignore_pkgs(){
 debug 1 "$FUNCNAME() $*"
 [[ "${conf[ignore]}" ]] || return
@@ -888,7 +898,7 @@ for pkg in $packages; do
             #for animation
             if $g_current_failed && ${conf[animate]}; then
                 msg_ani "FAILED"
-                pkg_err "Failed to build $pkg"
+                pkg_err $pkg "Failed to build $pkg"
                 $gretry && write_appname "$pkg"
             fi
         done
@@ -1167,7 +1177,8 @@ if ! $g_current_failed; then
     echo
     tail -n 30 "$log_file"
     echo
-    $g_clean_phase || pkg_err "Failed to build $pkg"
+    $g_clean_phase || pkg_err $pkg "Failed to build $pkg"
+        :
 fi #end of prechecks of
 } #}}}
 
@@ -1492,29 +1503,45 @@ pkg_err(){
 debug 1 "$FUNCNAME() $*"
 [[ ${conf[on_error]} == "skip" ]] && return
 g_current_failed=true
+local pkg=$1
+shift
 err "$@"
 case ${conf[on_error]} in
     exit)
+        #
+        # ADD PGK TO FAILED
+        pkg_failed $pkg
         exit 1
         ;;
     ask)
         while true; do
             read -p "$@ (y/n/retry) " yn
             case "$yn" in
-                [Yy]*)
-                    break
-                    ;;
-                [Nn]*)
-                    exit 1
-                    ;;
                 [Rr]*)
                     declare -g g_retry=true
                     break 1
+                    ;;
+                [Yy]*)
+                    #
+                    # ADD PKG TO FAILED
+                    pkg_failed $pkg
+                    break
+                    ;;
+                [Nn]*)
+                    #
+                    # ADD PKG TO FAILED
+                    pkg_failed $pkg
+                    exit 1
                     ;;
                 *) echo "Please answer with yes, no, retry." 1>&2 ;;
             esac
         done
         echo
+        ;;
+    *)
+        #
+        # ADD PKG TO FAILED
+        pkg_failed $pkg
         ;;
 esac
 }
@@ -1569,7 +1596,6 @@ echo
 
 ### fancy output functions
 ### taken from easy e17.sh - the code ist mostly unreviewed:(
-## TODO - rewrite - some of them
 del_word(){
 cnt=0
 max=${#1}
@@ -1578,6 +1604,8 @@ while (( cnt < max )); do
     (( cnt++ ))
 done
 }
+
+## TODO - rewrite
 rotate ()
 {
 pid=$1

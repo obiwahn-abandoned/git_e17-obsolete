@@ -45,3 +45,69 @@ You should write extra configuration files there you can specify:
     the way git is you do not have multiple checkouts
     maybe i can do something for you with core.worktree ...
 
+
+A typical run could look like this:
+
+user@host:~$ .git_e17 build only terminology
+
+------------------------- reading command line options -------------------------
+selected action is build
+only: terminology
+
+The following Configuration items changed:
+action=build
+------------------ reading global configuration in ~/.git_e17 ------------------
+git e17 path set to /mnt/backup/build/git_e17
+config file set to default.conf
+
+The following Configuration items changed:
+config_file=default.conf
+git_e17_path=/mnt/backup/build/git_e17
+------------ reading git-e17-path configuration file (default.conf) ------------
+The following Configuration items changed:
+evas_conf_args=--enable-gl-x11
+threads=8
+src_path=/mnt/backup/build/git_e17/e.org.git
+nice=19
+log_path=/mnt/backup/build/git_e17/log
+install_path=/usr/opt/e17
+doc=false
+packetlist=full
+on_error=ask
+cflags=-g
+build_path=/mnt/backup/build/git_e17/build
+-------------------------- reading global cfg options --------------------------
+The configuration did not Change!
+--------------------------- assigning default vaules ---------------------------
+The following Configuration items changed:
+pull=false
+fetch=false
+packagelist=full
+remote=origin
+----------------------------- getting source code ------------------------------
+changeing into /mnt/backup/build/git_e17/e.org.git
+Your current branch is master
+You are at commit f12a313172ccfe63c5b20faec6706ba950303ff4
+----------------------------- setting env variables -----------------------------
+PATH=/usr/opt/e17/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/home/build/.bin:/usr/opt/e17/bin
+ACLOCAL_FLAGS=-I /usr/opt/e17/share/aclocal
+LD_LIBRARY_PATH=/usr/opt/e17/lib:
+PKG_CONFIG_PATH=/usr/opt/e17/lib/pkgconfig:
+CPPFLAGS= -I/usr/opt/e17/include
+LDFLAGS= -L/usr/opt/e17/lib
+CFLAGS= -g
+PYTHONPATH=/usr/opt/e17/lib/python2.7/site-packages
+PYTHONINCLUDE=/usr/opt/e17/include/python2.7
+NOCONFIGURE=true
+
+checking existence of $install_path/share/aclocal $PYTHONPATH $PYTHONINCLUDE ...
+----------------------------- entering build phase -----------------------------
+The following packages will be build:
+
+terminology
+
+- trying to build terminology ...
+  - autogen ... OK
+  - configure ... OK
+  - make ... OK
+  - install ... OK

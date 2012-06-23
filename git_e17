@@ -335,7 +335,7 @@ debug_cfg
 ### get git_e17_path form ~/.git_e17 || create the file
 get_git_e17_path_from_global_cfg(){ #{{{
 debug 1 "$FUNCNAME() $*"
-section "reading global configuration in ~/.git_e17"
+section " reading global configuration in ~/.git_e17 "
 #
 # Read parts of the gobal config
 #   This function tries to read the gloabl configuration file
@@ -500,7 +500,7 @@ print_cfg
 ### assign default values
 assign_defaults(){
 debug 1 "$FUNCNAME() $*"
-section " assigning default vaules  "
+section " assigning default vaules "
 
 conf[log_path]="${conf[log_path]:-"${conf[git_e17_path]}/log"}"
 conf[packagelist]="${conf[packagelist]:-"full"}"
@@ -801,7 +801,7 @@ set_env(){ #{{{
 debug 1 "$FUNCNAME() $*"
 local install_path="${conf[install_path]}"
 
-section "setting env variables ..."
+section "setting env variables "
 
 export PATH="$install_path/bin:$PATH"
 echo "PATH=$PATH"
@@ -1407,6 +1407,7 @@ local len="$1"
 local padd="$2"
 local args=
 shift 2
+## get aditional arguments
 while : ; do
     if [[ $1 == @(-n|-e|-ne) ]]; then
         args+=$1
@@ -1417,10 +1418,12 @@ while : ; do
 done
 
 msg="$@ "
-
-while (( ${#msg} < len )); do
+#fill with padd
+while (( ${#msg} < len-1 )); do
     msg+="$padd"
 done
+msg+=" "
+#print
 echo $args "$msg"
 }
 
@@ -1637,28 +1640,10 @@ while [[ "$(ps -p $pid -o comm=)" ]]; do
 done
 del_word "$name[|-|]"
 }
+
 function write_appname ()
 {
-    name="$1"
-    hidden=$2
-    cnt="${#name}"
-    max=28
-
-    if [ "$hidden" ]; then
-        c=-3
-        while [ ! $c = $cnt ]; do
-            echo -n " "
-            c=$(($c+1))
-        done
-    else
-        echo -n "- $name "
-    fi
-
-    while [ ! $cnt = $max ]; do
-        echo -n "."
-        cnt=$(($cnt+1))
-    done
-    echo -n " "
+    echo_padd 28 . -n "$@"
 }
 
 ### END HELPER FUNCTIONS }}}

@@ -316,15 +316,17 @@ if [[ "$1" == @(build|update|devupdate|fromscratch|list|uninstall) ]]; then
     echo "selected action is ${conf[action]}"
     shift
 else
-    echo "Error: No vaild action"
-    help
-    exit 1
+    cmd_error
 fi
 
-if [[ "$1" == only ]]; then
+if ! [[ "$1" ]]; then
+    debug 1 "commandline actions are ok - options are not checked here"
+elif [[ "$1" == only ]]; then
     shift
     packages="$@"
     echo "only: $packages"
+else
+    cmd_error
 fi
 
 echo
@@ -1520,6 +1522,10 @@ case ${conf[on_error]} in
 esac
 }
 
+cmd_error(){
+section "-"
+ferr -e "No vaild command! See --help for usage.\n"
+}
 
 ## helper debuging
 debug(){

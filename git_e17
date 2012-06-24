@@ -788,7 +788,7 @@ debug 1 "$FUNCNAME() $*"
 #
 # add to failed
 #
-echo "Adding $1 to failed list/file/conf entry wahtever (not implemented)"
+echo -e "\nAdding $1 to failed list/file/conf entry wahtever (not implemented)\n"
 } #}}}
 
 ### mark package as successfully build
@@ -1550,8 +1550,8 @@ case ${conf[on_error]} in
         ;;
     ask)
         while true; do
-            read -p "Do you want to continue (yes/no/retry) " yn
-            case "$yn" in
+            read -p "       Do you want to continue, retry or quit?  (${bold}Y${boldoff}es/${bold}R${boldoff}etry/${bold}Q${boldoff}uit) " yrq
+            case "$yrq" in
                 [Rr]*)
                     declare -g g_retry=true
                     break 1
@@ -1559,7 +1559,7 @@ case ${conf[on_error]} in
                 [Yy]*)
                     break
                     ;;
-                [Nn]*)
+                [Qq]*)
                     #
                     # ADD PKG TO FAILED
                     pkg_failed "$pkg"

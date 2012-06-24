@@ -48,14 +48,13 @@ You should write extra configuration files there you can specify:
 
 A typical run could look like this:
 
-user@host:~$ .git_e17 build only terminology
+user@host:~$ ./git_e17 update
 
 ------------------------- reading command line options -------------------------
-selected action is build
-only: terminology
+selected action is update
 
 The following Configuration items changed:
-action=build
+action=update
 ------------------ reading global configuration in ~/.git_e17 ------------------
 git e17 path set to /mnt/backup/build/git_e17
 config file set to default.conf
@@ -72,8 +71,8 @@ nice=19
 log_path=/mnt/backup/build/git_e17/log
 install_path=/usr/opt/e17
 doc=false
-packetlist=full
-on_error=ask
+packagelist=full
+on_error=skip
 cflags=-g
 build_path=/mnt/backup/build/git_e17/build
 -------------------------- reading global cfg options --------------------------
@@ -82,13 +81,31 @@ The configuration did not Change!
 The following Configuration items changed:
 pull=false
 fetch=false
-packagelist=full
 remote=origin
 ----------------------------- getting source code ------------------------------
 changeing into /mnt/backup/build/git_e17/e.org.git
 Your current branch is master
-You are at commit f12a313172ccfe63c5b20faec6706ba950303ff4
------------------------------ setting env variables -----------------------------
+You are at commit 1c81ddee8d52b374555b6ca68ed95b5b4ff734f1
+---------------------------------- git fetch  ----------------------------------
+checking out master so that you local master matchtes the remote branch
+i think this is a good requirement to save the average person from harm:)
+git fetch origin
+From http://git.enlightenment.fr/cgit.cgi/svn
+1c81dde..5dbd5d9  master     -> origin/master
+git reset --hard  origin/master
+HEAD is now at 5dbd5d9 breaks java! yay!
+------------------------- looking for failed packages --------------------------
+not implemented
+----------------------------- calculating changes ------------------------------
+acquiring change set via:
+git diff --name-only g_old_commit g_current_commit
+old: 1c81ddee8d52b374555b6ca68ed95b5b4ff734f1
+new: 5dbd5d934e8033a7a85655d9d7adbcaeb27d338a
+receiving paths
+building path map
+The following packages are not up to date:
+ecore edje e python-elementary exquisite terminology
+-----------------------------setting env variables -----------------------------
 PATH=/usr/opt/e17/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/home/build/.bin:/usr/opt/e17/bin
 ACLOCAL_FLAGS=-I /usr/opt/e17/share/aclocal
 LD_LIBRARY_PATH=/usr/opt/e17/lib:
@@ -104,10 +121,11 @@ checking existence of $install_path/share/aclocal $PYTHONPATH $PYTHONINCLUDE ...
 ----------------------------- entering build phase -----------------------------
 The following packages will be build:
 
-terminology
+ecore edje e python-elementary exquisite terminology
 
-- trying to build terminology ...
-  - autogen ... OK
-  - configure ... OK
-  - make ... OK
-  - install ... OK
+ecore ..................... OK
+edje ...................... OK
+e ......................... OK
+python-elementary ......... OK
+exquisite ................. OK
+terminology ............... OK

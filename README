@@ -2,15 +2,16 @@ git_e17 - The enlightenment install script
 
 Requirements: BASH4, git
 
-This Scripts is inspired by Morlenxus' easy_e17.sh
-and also a tiny bit of code is thaken form it.
-The easy script can be found at:
-http://omicron.homeip.net/projects/#easy_e17.sh
-
-License: BSD licence
-Get the latest version at: https://github.com/ObiWahn/git_e17
-Coded by Jan Christoph Uhde (linux@obiwahn.org)
-
+#########################################################################
+# This Scripts is inspired by Morlenxus' easy_e17.sh                    #
+# and also a tiny bit of code is taken form it.                         #
+# The easy_e17.sh script can be found at:                               #
+# http://omicron.homeip.net/projects/#easy_e17.sh                       #
+#                                                                       #
+# License: BSD licence                                                  #
+# Get the latest version at: https://github.com/ObiWahn/git_e17         #
+# Coded by Jan Christoph Uhde (linux@obiwahn.org)                       #
+#########################################################################
 
 Usage examples:
 

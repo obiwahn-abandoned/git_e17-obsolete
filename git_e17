@@ -3,13 +3,13 @@
 # To Inspect the code use vim, modelines and folds!!!!
 
 #########################################################################
-# This Scripts is based on Morlenxus' easy_e17.sh                       #
-# It shares some of it's ideas as well as some code.                    #
-# The original script can be found at:                                  #
+# This Scripts is inspired by Morlenxus' easy_e17.sh                    #
+# and also a tiny bit of code is taken form it.                         #
+# The easy_e17.sh script can be found at:                               #
 # http://omicron.homeip.net/projects/#easy_e17.sh                       #
 #                                                                       #
-# Licebse: BSD licence                                                  #
-# Get the lastes version at: https://github.com/ObiWahn/git_e17         #
+# License: BSD licence                                                  #
+# Get the latest version at: https://github.com/ObiWahn/git_e17         #
 # Coded by Jan Christoph Uhde (linux@obiwahn.org)                       #
 #########################################################################
 
@@ -422,7 +422,7 @@ local conf_file="${conf[git_e17_path]}/${conf[config_file]}"
 if [[ ! -f "$conf_file" ]]; then
     #create default config
     new_cfg=true
-    cat > "$conf_file" << EOF
+    cat > "$conf_file" << EOF || ferr "Unable to create $conf_file"
 # git_e17 - local configuration file
 #
 # INFO:
@@ -467,7 +467,6 @@ evas_conf_args=--enable-gl-x11
 
 EOF
     #end of default config
-    [[ $? -ne 0 ]] || ferr "Failed to create $conf_file"
 fi
 
 # read config

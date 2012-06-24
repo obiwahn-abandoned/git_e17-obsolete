@@ -58,6 +58,12 @@ e="\n       "
 
 bold=$(tput bold)
 boldoff=$(tput sgr0)
+c_red=$(tput setaf 1)
+c_green=$(tput setaf 2)
+c_norm=$(tput setaf 7)
+ok="${bold}${c_green}OK${c_norm}${boldoff}"
+fail="${bold}${c_red}FAILED${c_norm}${boldoff}"
+error="${bold}${c_red}Error:${c_norm}${boldoff}"
 
 conf[git_repo]=http://git.enlightenment.fr/cgit.cgi/svn.git/
 
@@ -600,9 +606,9 @@ for dir in * ; do
         nice -n "${conf[nice]}" bash -c "make uninstall" &>>"${conf[log_path]}/uninstall.log" &
         rotate $! "" "${conf[log_path]}/uninstall.log"
         wait
-        echo OK
+        echo "$ok"
     else
-        echo FAILED
+        echo "$fail"
     fi
     cd ..
 done
@@ -915,7 +921,7 @@ for pkg in $packages; do
             ## BEGIN ANIMATION MODE OUTPUT
             #  this is the place for extra information in
             #  animation mode - it is shown when a building step failed
-                msg_ani "FAILED"
+                msg_ani "$fail"
                 pkg_err "$pkg"
                 $g_retry && write_appname "$pkg"
             fi
@@ -929,7 +935,7 @@ for pkg in $packages; do
             pkg_failed "$pkg"
         else
             #for animation
-            msg_ani "OK"
+            msg_ani "$ok"
             # REMOVE PKG FROM FAILED
             pkg_success "$pkg"
         fi
@@ -1079,7 +1085,7 @@ g_current_failed=false
         $g_current_failed || run_cmd "$pkg" "$src_path" "" "setip-py-install" "python setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
           ;;
       *)
-          msg "  - no build system ... FAILED"
+          msg "  - no build system ... $fail"
           g_current_failed=true
           return
   esac
@@ -1134,9 +1140,9 @@ if [[ $title == "make"* ]]; then
         # BEGIN NORMAL OUTPUT
         msg -n "  - $title ... "
         if $g_clean_phase; then
-            msg  "FAILED - make may fail during clean phase"
+            msg  "$fail - make may fail during clean phase"
         else
-            msg  "FAILED"
+            msg  "$fail"
             msg  "no Makefile :("
             pkg_err "$pkg"
         fi
@@ -1199,12 +1205,12 @@ if ! $g_current_failed; then
             if tail -n 20 "$log_file" | grep -q -i error &> /dev/null; then
                 g_current_failed=true
             else
-                msg "OK"
+                msg "$ok"
                 return
             fi
         fi
     fi
-    msg "FAILED"
+    msg "$fail"
     #
     # NORMAL AND VERBOSE MODE OUTPUT HERE !!!!!!
     #
@@ -1506,7 +1512,7 @@ done
 }
 
 ## ERROR
-err(){ echo; echo -n "Error: "; echo "$@"; }
+err(){ echo; echo -n "$error "; echo "$@"; }
 #fatal error
 ferr(){ err "$@"; exit 1; }
 #non fatal error
@@ -1546,7 +1552,7 @@ case ${conf[on_error]} in
         #
         # ADD PGK TO FAILED
         pkg_failed "$pkg"
-        exit 1
+        exit
         ;;
     ask)
         while true; do

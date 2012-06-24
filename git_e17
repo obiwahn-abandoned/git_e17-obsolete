@@ -417,10 +417,11 @@ section " reading git-e17-path configuration file (${conf[config_file]}) "
 #
 
 copy_cfg
-
+local new_cfg=false
 local conf_file="${conf[git_e17_path]}/${conf[config_file]}"
 if [[ ! -f "$conf_file" ]]; then
     #create default config
+    new_cfg=true
     cat > "$conf_file" << EOF
 # git_e17 - local configuration file
 #
@@ -465,19 +466,25 @@ doc=false
 evas_conf_args=--enable-gl-x11
 
 EOF
-
     #end of default config
-    echo -e "\nYou should edit Your new config in: \n$conf_file"
-    exit 0
-else
-    # read config
-    config="$(grep -v ^# < "$conf_file" | grep -v ^$)"
-    debug 3 "$config"
-    while IFS='=' read -r item value; do
-        conf["$item"]=${conf["$item"]:-"$value"}
-    done <<< "$config"
+    [[ $? -ne 0 ]] || ferr "Failed to create $conf_file"
 fi
+
+# read config
+config="$(grep -v ^# < "$conf_file" | grep -v ^$)"
+debug 3 "$config"
+while IFS='=' read -r item value; do
+    conf["$item"]=${conf["$item"]:-"$value"}
+done <<< "$config"
+
 print_cfg
+
+if $new_cfg; then
+    echo -e "\nEnlightenment 17 will be install to: ${bold} ${conf[install_path]} ${boldoff}"
+    echo -e "To change this or other settings you can edit:"
+    echo -e "${bold}$conf_file${boldoff}\n"
+    [[ $(ask_yn "Do you want to proceed with the installation using the defaults?") == "yes" ]] || exit 1
+fi
 } #}}}
 
 ### read rest of ~/.git_e17 - sets only overwrite unset options

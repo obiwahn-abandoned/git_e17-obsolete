@@ -462,6 +462,7 @@ conf[nice]="${conf[nice]:-"19"}"
 conf[pull]=${conf[pull]:-false}
 conf[fetch]=${conf[fetch]:-false}
 conf[remote]="${conf[remote]:-"origin"}"
+conf[noob_info]="${conf[noob_info]:-"true"}"
 
 
 if [[ ! $packages ]]; then
@@ -1078,8 +1079,7 @@ g_current_failed=false
         $g_current_failed || run_cmd "$pkg" "$src_path" "" "setip-py-install" "python setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
           ;;
       *)
-          msg echo "no build system found"
-          msg_ani -n " (no build system) - "
+          msg "  - no build system ... FAILED"
           g_current_failed=true
           return
   esac
@@ -1331,7 +1331,7 @@ local missing=""
 
 echo -e "\n ### This check should work for Debian wheezy/sid and Ubuntu precise ###"
 echo -e "\ndependences:"
-echo -e "$deps_debian_sid\n"
+echo -e "${deps_debian_sid}\n"
 
 echo -en "\n\nchecking ... "
 for dep in $deps_debian_sid; do
@@ -1736,7 +1736,9 @@ printf '%b\n' \
    "# default git_e17_path" \
    "git_e17_path=${conf[git_e17_path]%/}" \
    "# default config file" \
-   "config_file=default.conf"
+   "config_file=default.conf" \
+   "# noob info" \
+   "#noob_info=false"
 } #}}}
 
 default_local_cfg(){ #{{{
@@ -1758,6 +1760,8 @@ printf '%b\n' \
    "build_path=${conf[git_e17_path]}/build" \
    "log_path=${conf[git_e17_path]}/log" \
    "" \
+   "# noob info" \
+   "#noob_info=false" \
    "# additional CFLAGS" \
    "cflags=-g" \
    "# additional LDFLAGS" \
@@ -1793,3 +1797,22 @@ if [[ $(id -u) -eq 0 ]]; then
     echo "You should not run scripts as root! "
 fi
 main "$@"
+
+${conf[noob_info]} || { echo; exit 0; }
+section " info "
+
+printf '%b\n' \
+   "Your installation is successfull if ${bold}e${boldoff} is not among the list of failed packages." \
+   "You need to add the following lines to your ${bold}~/.profile${boldoff} or shells profile file:" \
+   "" \
+   "# Make e17 bins like enlightenment_start,eet,emprint avilable from any location" \
+   "export PATH=${conf[install_path]}/bin:\$PATH" \
+   "" \
+   "# Add new Python libs to PYTHONPATH" \
+   "export PYTHONPATH=$(python -c "import distutils.sysconfig; print distutils.sysconfig.get_python_lib(prefix='$install_path')" 2>/dev/null):\$PYTHONPATH" \
+   "" \
+   "# Add e17 libs to your users linker search path " \
+   "# Doing it like this is considered harmful by some people and most programs are" \
+   "# compiled with RPATH anyway - Read on LD_LIBRARY_PATH!!!" \
+   "#export LD_LIBRARY_PATH=${conf[install_path]}/bin:\$LD_LIBRARY_PATH" \
+   ""

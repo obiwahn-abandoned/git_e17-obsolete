@@ -74,7 +74,6 @@ debug 1 "$FUNCNAME() $*"
 
 ## interpret command line
 get_opts "$@"
-list ## list available packages
 ## configuration
 get_git_e17_path_from_global_cfg
 read_local_cfg
@@ -84,19 +83,20 @@ interpret_action
 check_cfg
 ##
 uninstall
+distcheck
 ## source
 get_src
 git_fetch_reset
 git_pull
 ## package management
-add_failed
-ignore_pkgs
 if ! [[ "$packages" ]]; then
-    echo -e "\nNo packages to build!\n"
+    echo -e "\n${bold}No packages to build!${boldoff}\n"
     exit 0
 fi
 ## finding changes
 calculate_updates
+add_failed
+ignore_pkgs
 ##
 set_env
 build
@@ -116,8 +116,6 @@ printf '%b\n' \
    "" \
    "git-e17 [options] action [only <packagelist>]" \
    "actions:" \
-   "    check" \
-   "        check if your system is ready to install e17" \
    "    build" \
    "        build everything" \
    "    update" \
@@ -131,9 +129,9 @@ printf '%b\n' \
    "     use only named packages" \
    "" \
    "options:" \
-   "    -h | --help  / --dev-help" \
+   "    -h | --help  / ${bold}--dev-help${boldoff}" \
    "        show help / developer help" \
-   "        developer help will give you some more options" \
+   "        ${bold}developer help will give you more actions and options${boldoff}" \
    "    --git-e17-path" \
    "        workdir for this script. It will contain the source, config and log" \
    "        files and dirs in which e17 is build. The default git_e17_path sould" \
@@ -152,15 +150,30 @@ debug 1 "$FUNCNAME() $*"
 #
 
 printf '%b\n' \
+   "Enable devmode with --dev on command line or dev=true in a configuration file." \
+   "" \
+   "changed actions: (when in dev mode actions do not enforce additional options) " \
+   "    build" \
+   "        build everything" \
+   "    update" \
+   "        check for updates before building" \
    "extra actions:" \
-   "    devupdate" \
-   "        almost the same as update but does not imply --fetch-reset-hard" \
+   "    check" \
+   "        check if your system is ready to install e17" \
+   "    build" \
+   "        build everything" \
+   "    update" \
+   "        check for updates before building" \
    "    fromscratch" \
    "        delete e17 installation and build e17 from scratch" \
    "        ATTENTION: this will rm -fr $install_path" \
    "                   do not do is if you installed to /usr/local" \
    "" \
    "extra options:" \
+   "    --dev" \
+   "        options: sets noob_info=false" \
+   "        avoids system checks" \
+   "        there will be the time that you want it in you conf" \
    "    --conf <conf>" \
    "        config file - especially useful if you want multiple installs" \
    "        ONLY CONF NAME - NO FULL PATHS!!!" \
@@ -179,7 +192,7 @@ printf '%b\n' \
    "        and will do a git reset --hard remote/currentbrach" \
    "" \
    "    --clean / --distclean / --uninstall" \
-   "        make clean / distclean before building" \
+   "        make clean / distclean / uninstall before building" \
    "    --vmake" \
    "        more verbse make (V=1)" \
    "    --conf_args" \
@@ -296,6 +309,11 @@ do
             echo "found option: --ignore '$2'"
             shift 2
             ;;
+        -d | --dev)
+            conf[dev]="true"
+            echo "found option: --dev '$2'"
+            shift 1
+            ;;
         --dev-help)
             echo ""
             help
@@ -317,7 +335,7 @@ done
 
 #parse action parameter
 debug 1 "action: $1"
-if [[ "$1" == @(build|update|devupdate|fromscratch|list|uninstall) ]]; then
+if [[ "$1" == @(build|update|devupdate|devbuild|fromscratch|list|uninstall|quick|check) ]]; then
     conf[action]="$1"
     echo "selected action is ${conf[action]}"
     shift
@@ -469,6 +487,7 @@ conf[pull]=${conf[pull]:-false}
 conf[fetch]=${conf[fetch]:-false}
 conf[remote]="${conf[remote]:-"origin"}"
 conf[noob_info]="${conf[noob_info]:-"true"}"
+conf[dev]="${conf[dev]:-"true"}"
 
 
 if [[ ! $packages ]]; then
@@ -496,25 +515,59 @@ copy_cfg
 
 local action="${conf[action]}"
 
+
+if ${conf[dev]}; then
+    conf[noob_info]=false #we dont want no noobinfo at then end:
+    case "$action" in
+        build|devbuild)
+            conf[action]="build"
+            ;;
+        update|devupdate)
+            conf[action]="update"
+            ;;
+        quick)
+            conf[action]="build"
+            conf[animate]=true
+            conf[debug]=false
+            conf[verbose]=false
+            conf[on_error]="skip"
+            ;;
+    esac
+else
+    case "$action" in
+        build)
+            conf[action]="build"
+            conf[fetch]=false
+            conf[pull]=false
+
+            conf[animate]=true
+            conf[debug]=false
+            conf[verbose]=false
+            conf[on_error]="skip"
+            ;;
+        update|quick)
+            conf[action]="update"
+
+            conf[branch]="master"
+            conf[remote]="origin"
+            conf[fetch]=true
+            conf[pull]=false
+
+            conf[animate]=true
+            conf[debug]=false
+            conf[verbose]=false
+            conf[on_error]="skip"
+            ;;
+        devbuild)
+            conf[action]="build"
+            ;;
+        devupdate)
+            conf[action]="update"
+            ;;
+    esac
+fi
+
 case "$action" in
-    build)
-        conf[action]="build"
-        conf[fetch]=false
-        conf[pull]=false
-        ;;
-    update)
-        conf[branch]="master"
-        conf[remote]="origin"
-        conf[fetch]=true
-        conf[pull]=false
-        conf[animate]=true
-        conf[debug]=false
-        conf[verbose]=false
-        conf[on_error]="skip"
-        ;;
-    devupdate)
-        conf[action]="update"
-        ;;
     fromscratch)
         (( $(id -u) = 0 )) && echo "idiot!!!" && exit 666
         rm -fr "${conf[install_path]}"
@@ -525,11 +578,17 @@ case "$action" in
         ;;
     list)
         #TODO
-        echo "not implemented"
+        list
         exit 1
+        ;;
+    check)
+        conf[dev]=false #required otherwise distcheck will exit immediately
+        distcheck
+        exit 0
         ;;
 esac
 
+echo "These changes are forces by options"
 print_cfg
 } #}}}
 
@@ -601,7 +660,7 @@ for dir in * ; do
     fi
     #test for makefile
     if [[ -e Makefile || -e makefile ]]; then
-        write_appname "$dir"
+        write_name "$dir"
         #uninstall - try to run make uninstall
         nice -n "${conf[nice]}" bash -c "make uninstall" &>>"${conf[log_path]}/uninstall.log" &
         rotate $! "" "${conf[log_path]}/uninstall.log"
@@ -712,52 +771,61 @@ section " calculating changes "
 
 g_current_commit="$(git log -1 --format="%H")"
 
-echo "acquiring change set via:"
+echo -n "acquiring change set via: "
 
 local new_files=""
 if ${conf[fetch]}; then
     debug 1 "if fetch"
     if [[ "$g_old_commit" != "$g_current_commit" ]];then
-        echo "git diff --name-only g_old_commit g_current_commit"
+        echo "git diff g_old_commit g_current_commit"
         echo "old: $g_old_commit"
         echo "new: $g_current_commit"
         new_files="$(git diff --name-only $g_old_commit $g_current_commit)"
         debug 2 "new files: $new_files"
     else
-        echo "The commit has not changed!!"
+        echo "git diff g_old_commit g_current_commit"
+        echo -e "\nNo Changes!!\n"
+        exit 0
     fi
 elif ${conf[pull]};then
     debug 1 "if pull"
-    echo "git diff - this collects only changes that are not already in the index or committed"
+    echo "git diff"
+    echo -e " - This collects only changes that are not already in the index or committed"
     local new_files_tmp="$(git diff --name-only)"
     new_files="$(grep -v -E "/po/.*\.po$|/INSTALL$" <<< "$new_files_tmp")"
     debug 2 "$new_files"
 else
-    echo "git diff - this collects only changes that are not already in the index or committed"
+    echo "git diff"
+    echo -e " - This collects only changes that are not already in the index or committed"
     local new_files_tmp="$(git diff --name-only)"
     new_files="$(grep -v -E "/po/.*\.po$|/INSTALL$" <<< "$new_files_tmp")"
     debug 2 "$new_files"
-
 fi
 
-echo -e "\n - receiving paths"
+echo
+write_name " - receiving paths"
 local new_dirs="$(
     while read -r line; do
         echo "${line%/*}/"
     done <<< "$new_files"
 )"
+echo "$ok"
 
 debug 1 sleep "new_dirs: $new_dirs"
 
-echo -e " - building path map\n"
+write_name " - building path map"
 local -A path_map
-for pkg in $packages; do
+( for pkg in $packages; do
     find_local_path "$pkg" "/trunk"
     local path="${conf[current_package_path]}"
     path=${path##"$src_path"}
     path_map["$pkg"]="trunk/$path/"
     debug 3 "map $pkg: ${path_map[$pkg]}"
-done
+done ) &
+
+rotate $! "" "no_file"
+wait
+echo -e "$ok \n"
 
 packages_new=""
 for pkg in $packages; do
@@ -773,7 +841,7 @@ if [[ "$packages" ]]; then
     echo -e "The following packages are not up to date: \n"
     echo_long "$packages"
 else
-    echo "All packages are up to date! There is no need to update!!"
+    echo -e "All packages are up to date! There is no need to update!!\n"
     exit 0
 fi
 } #}}}
@@ -825,7 +893,7 @@ set_env(){ #{{{
 debug 1 "$FUNCNAME() $*"
 local install_path="${conf[install_path]}"
 
-section "setting env variables "
+section " setting environment variables "
 
 export PATH="$install_path/bin:$PATH"
 echo "PATH=$PATH"
@@ -907,7 +975,7 @@ for pkg in $packages; do
         continue
     else
         #for animation
-        ${conf[animate]} && write_appname "$pkg"
+        ${conf[animate]} && write_name "$pkg"
 
         fix_pkg "$pkg" "$cpath" "/trunk" "$bpath"
 
@@ -923,7 +991,7 @@ for pkg in $packages; do
             #  animation mode - it is shown when a building step failed
                 msg_ani "$fail"
                 pkg_err "$pkg"
-                $g_retry && write_appname "$pkg"
+                $g_retry && write_name "$pkg"
             fi
         done
       ####
@@ -1252,7 +1320,7 @@ esac
 distcheck(){ #{{{
 #echo -e "${bold}checking distribution ...${boldoff}"
 debug 1 "$FUNCNAME() $*"
-[[ "$@" != "check" ]] && return
+! ${conf[dev]} || return
 section " build dependences check "
 
 #check for programs
@@ -1274,10 +1342,10 @@ else
     unsupported_dist_note
 fi
 
-echo "proceeding with general checks"
 #
 #   general check
 #
+echo -e "${bold}proceeding with general checks\n${boldoff}"
 local failed=false
 
 deps_bin="git make automake byacc g++ gcc libtool pkg-config"
@@ -1285,30 +1353,29 @@ deps_dev="dbus-1 fontconfig freetype GL jpeg lua5.1 png rsvg-2 udev xml2 X11 Xex
 
 echo -e "checking commands:"
 for bin in $deps_bin; do
-    echo_padd 15 ' ' -n "$bin"
+    write_name "$bin"
     if ! type $bin &> /dev/null; then
         failed=true
-        echo "missing"
+        echo "$fail - missing"
     else
-        echo "ok"
+        echo "$ok "
     fi
 done
 
-echo -e "\n\nchecking includes:"
+echo -e "\nchecking includes:"
 compfile="/tmp/include_test.c"
 echo "main(){}" >$compfile
 for dep in $deps_dev; do
-    echo_padd 15 ' ' -n "$dep"
+    write_name "$dep"
     if ! gcc -o /dev/null $compfile -l$dep &>/dev/null; then
         failed=true
-        echo "include missing"
+        echo "$fail - include missing"
     else
-        echo "ok"
+        echo "$ok"
     fi
 done
 
-$failed && echo "Please install the missing build dependencies" && exit 1
-exit 0
+$failed && ferr "Please install the missing build dependencies"
 } #}}}
 
 ##  debian specific stuff
@@ -1337,9 +1404,9 @@ local missing=""
 
 echo -e "\n ### This check should work for Debian wheezy/sid and Ubuntu precise ###"
 echo -e "\ndependences:"
-echo -e "${deps_debian_sid}\n"
+echo_long "${deps_debian_sid}\n"
 
-echo -en "\n\nchecking ... "
+write_name "checking packages"
 for dep in $deps_debian_sid; do
     if ! echo "$pkg_list" | grep -q -E "^ii\s*$dep" &>/dev/null ; then
         missing+="$dep "
@@ -1349,7 +1416,7 @@ done
 
 
 if [[ $missing ]]; then
-    echo -e "failed\n\nThe following packages are missing:\n${missing}\n"
+    echo -e "${fail}\n\nThe following packages are missing:\n${missing}\n"
     if (( $(id -u) == 0 )); then
         if [[ $(ask_yn "do you want to install the missing packages?") == "yes" ]]; then
             apt-get install $missing || exit 1
@@ -1358,7 +1425,7 @@ if [[ $missing ]]; then
         sleep 10
     fi
 else
-    echo ok
+    echo -e "${ok} \n"
 fi
 } #}}}
 
@@ -1491,7 +1558,7 @@ if [[ "$1" == "-f" ]]; then
 fi
 # break output at width
 local line_out="$fill"
-local width=80
+local width=75
 for item in $@; do
     if (( (${#line_out} + ${#item})  > width )); then
         echo -ne "${line_out}\n"
@@ -1645,16 +1712,16 @@ done
 ## TODO - rewrite
 rotate ()
 {
-pid=$1
-name="$2"
-log_file=$3
-animation_state=1
-log_line=""
+local pid=$1
+local name="$2"
+local log_file=$3
+local animation_state=1
+local log_line=""
 echo -n "$name"
 echo -n "     "
 while [[ "$(ps -p $pid -o comm=)" ]]; do
-    last_line=$(tail -1 "$log_file")
-    if [[ "$log_line" != "$last_line" ]]; then
+    [[ $log_file == "no_file" ]] || last_line=$(tail -1 "$log_file")
+    if [[ $log_file == "no_file" ]] || [[ "$log_line" != "$last_line" ]]; then
                 echo -e -n "\b\b\b\b\b"
                 case $animation_state in
                     1)
@@ -1706,7 +1773,7 @@ done
 del_word "$name[|-|]"
 }
 
-write_appname(){
+write_name(){
     echo_padd 28 . -n "$@"
 }
 
@@ -1743,7 +1810,10 @@ printf '%b\n' \
    "git_e17_path=${conf[git_e17_path]%/}" \
    "# default config file" \
    "config_file=default.conf" \
-   "# noob info" \
+   "" \
+   "# enable developer mode" \
+   "#dev=true" \
+   "# disable noob info" \
    "#noob_info=false"
 } #}}}
 
@@ -1766,7 +1836,9 @@ printf '%b\n' \
    "build_path=${conf[git_e17_path]}/build" \
    "log_path=${conf[git_e17_path]}/log" \
    "" \
-   "# noob info" \
+   "# enable developer mode" \
+   "#dev=true" \
+   "# disable noob info" \
    "#noob_info=false" \
    "# additional CFLAGS" \
    "cflags=-g" \
@@ -1795,8 +1867,6 @@ printf '%b\n' \
 } #}}}
 
 ### program starts here
-# well it can be done as root
-distcheck "$@"
 # make sure main program ist not run as root as it cause serious damage
 # i like to be sloppy - if you override this don't blame me:P
 if [[ $(id -u) -eq 0 ]]; then

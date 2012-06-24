@@ -796,14 +796,23 @@ fi
 } #}}}
 
 add_failed(){
+debug 1 "$FUNCNAME() $*"
+# add failed packages to packages that should be build
 section " looking for failed packages "
 echo "not implemented"
 }
 
 pkg_failed(){
+debug 1 "$FUNCNAME() $*"
+# add to failed
 echo "Adding $1 to failed list/file/conf entry wahtever (not implemented)"
 }
 
+pkg_success(){
+debug 1 "$FUNCNAME() $*"
+# remove from failed
+:
+}
 ignore_pkgs(){
 debug 1 "$FUNCNAME() $*"
 [[ "${conf[ignore]}" ]] || return
@@ -910,11 +919,15 @@ for pkg in $packages; do
             fi
         done
       ####
+
+      #### management of failed / successful packages
         if $g_current_failed; then
             #
             # ADD PKG TO FAILED
-            pkg_failed $pkg
+            pkg_failed "$pkg"
         else
+            # REMOVE PKG FROM FAILED
+            pkg_success "$pkg"
             #for animation
             msg_ani "OK"
         fi

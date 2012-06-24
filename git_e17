@@ -824,6 +824,13 @@ echo_long "$packages"
 echo
 
 for pkg in $packages; do
+    #
+    # please use only
+    # msg     - for normal and verbose mode messages or
+    # msg_ani - for animation mode messages
+    # within this loop for output
+    #
+
     msg "- trying to build $pkg ..."
 
     #initialize vars
@@ -850,10 +857,13 @@ for pkg in $packages; do
         while $g_retry; do
             g_retry=false
             compile "$pkg" "$cpath" "/trunk" "$bpath"
-            #for animation
-            if $g_current_failed && ${conf[animate]}; then
+
+            if ${conf[animate]} && $g_current_failed; then
+            ## BEGIN ANIMATION MODE OUTPUT
+            #  this is the place for extra information in
+            #  animation mode - it is shown when a building step failed
                 msg_ani "FAILED"
-                pkg_err $pkg "Failed to build $pkg"
+                pkg_err "$pkg"
                 $g_retry && write_appname "$pkg"
             fi
         done
@@ -865,10 +875,10 @@ for pkg in $packages; do
             # ADD PKG TO FAILED
             pkg_failed "$pkg"
         else
-            # REMOVE PKG FROM FAILED
-            pkg_success "$pkg"
             #for animation
             msg_ani "OK"
+            # REMOVE PKG FROM FAILED
+            pkg_success "$pkg"
         fi
     fi
 done
@@ -908,7 +918,7 @@ dirs="$(find "$src_path" -maxdepth 3 -type d \( $prune \) -prune -o -type d -nam
 #debug+x
 debug 2 "$dirs"
 
-#pick the one with the sortest path
+#pick the one with the shortest path
 local path_len=666
 while read -r path ;do
     if [[ -d "$src_path/$path" ]] && (( ${#path} < $path_len ));  then
@@ -1064,14 +1074,19 @@ if [[ $title == "make"* ]]; then
     #TODO - elif check source dir and cd into it
         g_current_failed=true
         #We will not fail in clean_phase
+
+        # make sure animation mode is not interrupted
         ${conf[animate]} && return
+        # BEGIN NORMAL OUTPUT
         msg -n "  - $title ... "
         if $g_clean_phase; then
             msg  "FAILED - make may fail during clean phase"
         else
             msg  "FAILED"
-            nerr "No makefile - failed to build $pkg"
+            msg  "no Makefile :("
+            pkg_err "$pkg"
         fi
+        # BEGIN NORMAL OUTPUT
         return
     fi
 fi
@@ -1105,6 +1120,7 @@ if ! $g_current_failed; then
         # success
         #return here and now do not go any further - HACK!!!
         return
+
     #if a more verbose mode is used
     elif ${conf[verbose]} || ${conf[dev]} ; then
         echo -e "  - RUNNING: ${bold}$@${boldoff} ... "
@@ -1135,10 +1151,13 @@ if ! $g_current_failed; then
         fi
     fi
     msg "FAILED"
+    #
+    # NORMAL AND VERBOSE MODE OUTPUT HERE !!!!!!
+    #
     echo
     tail -n 30 "$log_file"
     echo
-    $g_clean_phase || pkg_err $pkg "Failed to build $pkg"
+    $g_clean_phase || pkg_err $pkg
         :
 fi #end of pre checks of
 } #}}}
@@ -1451,7 +1470,7 @@ esac
 # ask to continue on error
 ask_yn(){
 while true; do
-    read -p "$@ (y/n)" yn
+    read -p "$@ (y/n) " yn
     case "$yn" in
         [Yy]*) echo "yes"; break ;;
         [Nn]*) echo "no" ; break ;;
@@ -1466,7 +1485,7 @@ debug 1 "$FUNCNAME() $*"
 g_current_failed=true
 local pkg="$1"
 shift
-err "$@"
+err "The installation of package $pkg failed!"
 case ${conf[on_error]} in
     exit)
         #
@@ -1476,7 +1495,7 @@ case ${conf[on_error]} in
         ;;
     ask)
         while true; do
-            read -p "$@ (y/n/retry) " yn
+            read -p "Do you want to continue (yes/no/retry) " yn
             case "$yn" in
                 [Rr]*)
                     declare -g g_retry=true

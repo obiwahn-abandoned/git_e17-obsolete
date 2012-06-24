@@ -138,6 +138,7 @@ printf '%b\n' \
    "    -a | --animate" \
    ""
 }
+
 devhelp(){
 debug 1 "$FUNCNAME() $*"
 #
@@ -191,13 +192,12 @@ section " reading command line options "
 #
 # This function reads the command line arguments
 #
-# In:
-# $@ - ARGV
+# in:
+#   $@ - ARGV
 #
-# Out:
-# sets: conf, branch, debug, verbose or calls help
-#
-# TODO - idiot proof checking of arguments
+# out:
+#   sets: conf, branch, debug, verbose or calls help
+#   TODO - idiot proof checking of arguments
 #
 
 copy_cfg
@@ -343,9 +343,10 @@ section " reading global configuration in ~/.git_e17 "
 #   or creates it. If the file exists two important config
 #   items are read when they are not set by command line
 #
-# Out:
-#   sets: conf[git_e17_path], conf[config_file]
+#   out:
+#       sets: conf[git_e17_path], conf[config_file]
 #
+
 copy_cfg
 
 local conf_file="$HOME/.git_e17"
@@ -396,16 +397,19 @@ read_local_cfg(){ #{{{
 debug 1 "$FUNCNAME() $*"
 section " reading git-e17-path configuration file (${conf[config_file]}) "
 #
-# This function reads the config file and sets script variables
+# This function checks if the config exists. If it does not the file is created.
+# Then the configuration file is read and the values are put into the conf array.
+# In case the file was newly created the user is asked if he wants to continue.
 #
-# Out:
-# sets: ... a lot ...
-#
+# out:
+#   sets: ... a lot items in conf ...
 #
 
 copy_cfg
+
 local new_cfg=false
 local conf_file="${conf[git_e17_path]}/${conf[config_file]}"
+
 if [[ ! -f "$conf_file" ]]; then
     echo "$(default_local_cfg)" > "$conf_file" || ferr "Unable to create $conf_file"
     new_cfg=true
@@ -433,17 +437,17 @@ read_global_cfg(){ #{{{
 debug 1 "$FUNCNAME() $*"
 section " reading global cfg options "
 #
-# add global configuration
+# Read global configuration and copy items to conf
 #
 
 copy_cfg
 
-debug 1 "$FUNCNAME() $*"
-    config="$(grep -v ^# < "$HOME/.git_e17" | grep -v ^$)"
-    debug 3 "$config"
-    while IFS='=' read -r item value; do
-        conf["$item"]=${conf["$item"]:-"$value"}
-    done <<< "$config"
+config="$(grep -v ^# < "$HOME/.git_e17" | grep -v ^$)"
+debug 3 "$config"
+while IFS='=' read -r item value; do
+    conf["$item"]=${conf["$item"]:-"$value"}
+done <<< "$config"
+
 print_cfg
 }
 ### assign default values
@@ -471,8 +475,18 @@ fi
 print_cfg
 } #}}}
 
-interpret_action(){
+interpret_action(){ #{{{
 debug 1 "$FUNCNAME() $*"
+section " interpret action "
+#
+#   Function interprets action and sets options
+#
+#   out:
+#       sets: some options in conf so that they fit the selected action
+#
+
+copy_cfg
+
 local action="${conf[action]}"
 
 case "$action" in
@@ -507,15 +521,15 @@ case "$action" in
         echo "not implemented"
         exit 1
         ;;
-
 esac
 
-
-}
+print_cfg
+} #}}}
 
 ### check for missing options and unwritable paths
 check_cfg(){ #{{{
 debug 1 "$FUNCNAME() $*"
+section " checking configuration "
 #
 # check configuration
 #
@@ -528,7 +542,7 @@ local conf_items="$paths $output action config_file packagelist nice on_error"
 
 for item in $conf_items; do
     if [[ -z "${conf["$item"]}" ]]; then
-        ferr "value for $item is not set - please edit your config file"
+        ferr "Value for $item is not set - please edit your config file"
     fi
 done
 
@@ -536,7 +550,7 @@ done
 for path in $paths; do
     if [[ ! -d "${conf[$path]}" ]]; then
         mkdir -p "${conf[$path]}" && continue
-        ferr "unable to create the directory ${conf[$path]} - create it!"
+        ferr "Unable to create the directory ${conf[$path]} - create it!"
     elif [[ ! -w "${conf[$path]}" ]]; then
         ferr "The directory ${conf[$path]} is not writeable for you:( - change that!"
     fi
@@ -550,6 +564,8 @@ for key in ${!conf[@]}; do
         *) continue ;;
     esac
 done
+
+echo "Configuration passed all checks."
 debug_cfg
 } #}}}
 
@@ -557,10 +573,10 @@ debug_cfg
 uninstall(){ #{{{
 debug 1 "$FUNCNAME() $*"
 [[ ${conf[action]} == uninstall ]] || return
+section " uninstalling e17 "
 #
 # This functions uninstalls e17
 #
-section " uninstalling e17 "
 
 #
 # ok this is is frigging ugly:P - but it works :E
@@ -569,6 +585,7 @@ section " uninstalling e17 "
 #enter build dir
 cd "${conf[build_path]}" || { echo "uninstall failed"; exit 1; }
 
+#visit all subdirs - they should match the package names
 for dir in * ; do
     #change dir
     if ! cd "$dir" &>/dev/null ; then
@@ -578,7 +595,7 @@ for dir in * ; do
     #test for makefile
     if [[ -e Makefile || -e makefile ]]; then
         write_appname "$dir"
-        #uninstall
+        #uninstall - try to run make uninstall
         nice -n "${conf[nice]}" bash -c "make uninstall" &>>"${conf[log_path]}/uninstall.log" &
         rotate $! "" "${conf[log_path]}/uninstall.log"
         wait
@@ -588,21 +605,28 @@ for dir in * ; do
     fi
     cd ..
 done
+
 exit 0
 } #}}}
 
-
 ### functions that scan source code and select packages to be build
-### TODO SPLIT FUNCTION
 get_src(){ #{{{
 debug 1 "$FUNCNAME() $*"
 section " getting source code "
+#
+# Clone Repository if it does not exist and change into to it's directory
+#
+# out:
+#   sets: g_current_branch, g_old_commit
+#
 
 g_current_failed=false
+
 local src_path="${conf[src_path]}"
 local git="${conf[git_repo]}"
 local remote="${conf[remote]}"
 
+#delete log file - append at other locations !
 rm -fr "${conf[git_e17_path]}/git.log"
 
 #does the repo exist
@@ -611,6 +635,7 @@ if [[ ! -d ${conf[src_path]} ]]; then
     echo "cloning ${conf[git_repo]}"
     git clone -v --progress "${conf[git_repo]}" "$src_path" || ferr "unable to clone repository"
 fi
+
 #change to repo
 echo "changing into $src_path"
 cd "$src_path" || ferr "failed to cd in $src_path"
@@ -623,13 +648,16 @@ echo "Your current branch is $g_current_branch"
 #get hash of current HEAD
 g_old_commit="$(git log -1 --format="%H")"
 echo "You are at commit $g_old_commit"
-
 } #}}}
 
+### fetch changes and reset repo to fetched head
 git_fetch_reset(){ #{{{
 debug 1 "$FUNCNAME() $*"
 ${conf[fetch]} || return
 section " git fetch  "
+#
+#
+#
 
 local remote="${conf[remote]}"
 local branch="${conf[branch]:-"$g_current_branch"}"
@@ -644,26 +672,36 @@ if [[ -n "$branch" && "$branch" != "$g_current_branch" ]]; then
 fi
 
 echo "git fetch $remote"
-git fetch $remote | tee -a "${conf[git_e17_path]}/git.log" || nerr "git fetch"
+git fetch $remote &> >( tee -a "${conf[git_e17_path]}/git.log" ) || nerr "git fetch"
 
+echo "git clean -f -d"
 git clean -f -d &> /dev/null
-echo "git reset --hard  $remote/$branch"
-git reset --hard "$remote/$branch" | tee -a  "${conf[git_e17_path]}/git.log" || nerr "git reset --hard failed"
 
+echo "git reset --hard  $remote/$branch"
+git reset --hard "$remote/$branch" &> >( tee -a "${conf[git_e17_path]}/git.log" ) \
+    || nerr "git reset --hard failed"
 } #}}}
 
+### pull changes into repo
 git_pull(){ #{{{
 debug 1 "$FUNCNAME() $*"
 ${conf[pull]} || return
 section " git pull --no-commit "
+#
+#   pull updates into branch
+#
 section " dear god we all hope there are no conflicts "
-git pull --no-commit $remote | tee -a "${conf[git_e17_path]}/git.log" || nerr "git pull failed"
+git pull --no-commit $remote &> >( tee -a "${conf[git_e17_path]}/git.log" ) || nerr "git pull failed"
 } #}}}
 
+### calculate updates
 calculate_updates(){ #{{{
 debug 1 "$FUNCNAME() $*"
 [[ "${conf[action]}" == "update" ]] || return
 section " calculating changes "
+#
+#   Calculates changes to packages du to to fetch / pull operations
+#
 
 g_current_commit="$(git log -1 --format="%H")"
 
@@ -695,7 +733,7 @@ else
 
 fi
 
-echo "receiving paths"
+echo -e "\n - receiving paths"
 local new_dirs="$(
     while read -r line; do
         echo "${line%/*}/"
@@ -704,7 +742,7 @@ local new_dirs="$(
 
 debug 1 sleep "new_dirs: $new_dirs"
 
-echo "building path map"
+echo -e " - building path map\n"
 local -A path_map
 for pkg in $packages; do
     find_local_path "$pkg" "/trunk"
@@ -723,12 +761,9 @@ for pkg in $packages; do
     fi
 done
 
-#
-# TODO - parse information about failed packages here!!!
-#
 packages="$packages_new"
 if [[ "$packages" ]]; then
-    echo "The following packages are not up to date: "
+    echo -e "The following packages are not up to date: \n"
     echo_long "$packages"
 else
     echo "All packages are up to date! There is no need to update!!"
@@ -736,32 +771,47 @@ else
 fi
 } #}}}
 
-add_failed(){
+### add failed packags to rebuild list
+add_failed(){ #{{{
 debug 1 "$FUNCNAME() $*"
-# add failed packages to packages that should be build
 section " looking for failed packages "
+#
+# add failed packages to packages that should be build
+#
 echo "not implemented"
-}
+} #}}}
 
-pkg_failed(){
+### mark package as failed
+pkg_failed(){ #{{{
 debug 1 "$FUNCNAME() $*"
+#
 # add to failed
+#
 echo "Adding $1 to failed list/file/conf entry wahtever (not implemented)"
-}
+} #}}}
 
-pkg_success(){
+### mark package as successfully build
+pkg_success(){ #{{{
 debug 1 "$FUNCNAME() $*"
+#
 # remove from failed
+#
 :
-}
-ignore_pkgs(){
+} #}}}
+
+###
+ignore_pkgs(){ #{{{
 debug 1 "$FUNCNAME() $*"
 [[ "${conf[ignore]}" ]] || return
 section " ignore packages "
+#
+# remove packages to ignore to from packages
+#
+
 local ignore=${conf[ignore]//,/ }
 echo "ignoring packages $ignore"
 packages="$(sub_lists "$packages" "$ignore")"
-}
+} #}}}
 
 ### set up the build environment
 set_env(){ #{{{
@@ -894,11 +944,11 @@ debug 1 "$FUNCNAME() $*"
 #
 # Function that should find the source path to the current package
 #
-# In:
-# $1 - package name
-# $2 - trunk
-# Out:
-# sets: conf[current_package_path]
+# in:
+#   $1 - package name
+#   $2 - trunk
+# out:
+#   sets: conf[current_package_path]
 #
 local name="$1"
 local trunk="$2"
@@ -939,6 +989,9 @@ fi
 ### calls: run_cmd
 compile(){ #{{{
 debug 1 "$FUNCNAME() $*"
+#
+#
+#
 local pkg="$1"
 local src_path="$2"
 local src_off="$3"
@@ -1038,21 +1091,21 @@ g_current_failed=false
 run_cmd(){ #{{{
 debug 1 "$FUNCNAME() $*"
 #
-# In:
-# $1 - pkg - package name
-# $2 - src - source path
-# $3 - build - path in which configure will be run
-# $4 - title - titel of the displayed action while the command is running
-# $@ - the command to be run
+# in:
+#   $1 - pkg - package name
+#   $2 - src - source path
+#   $3 - build - path in which configure will be run
+#   $4 - title - titel of the displayed action while the command is running
+#   $@ - the command to be run
 #
-# Out:
-# compiles the code and sets g_current_failed in case of failure
+# out:
+#   compiles the code and sets g_current_failed in case of failure
 #
-# FUNCTION NEEDS TO BE REWRITTEN - it is UGLY and STUIP
-# a better way than writing $@ to call the command would be nice
+#   FUNCTION NEEDS TO BE REWRITTEN - it is UGLY and STUIP
+#   a better way than writing $@ to call the command would be nice
 #
-# the 3 different calls might be handled in another way
-# maybe it is better to write a separate run_animated function
+#   the 3 different calls might be handled in another way
+#   maybe it is better to write a separate run_animated function
 #
 
 local pkg="$1"
@@ -1068,7 +1121,6 @@ if [[ -n "$build_path" ]]; then
 else
     cd "$src" || on_error "unable to cd into $src"
 fi
-
 
 ## check if makefile is available
 if [[ $title == "make"* ]]; then
@@ -1164,9 +1216,13 @@ if ! $g_current_failed; then
 fi #end of pre checks of
 } #}}}
 
-
-fix_pkg(){
+### fix packages
+fix_pkg(){ #{{{
 debug 1 "$FUNCNAME() $*"
+#
+# fix packages
+#
+
 local pkg="$1"
 local cpath="$2"
 local coff="$3"
@@ -1182,13 +1238,12 @@ case $pkg in
         msg "PRAY!"
         ;;
 esac
-}
-
-
+} #}}}
 ##### functions used in main }}}
 
 #### distcheck functions {{{
-distcheck(){
+
+distcheck(){ #{{{
 #echo -e "${bold}checking distribution ...${boldoff}"
 debug 1 "$FUNCNAME() $*"
 [[ "$@" != "check" ]] && return
@@ -1248,9 +1303,10 @@ done
 
 $failed && echo "Please install the missing build dependencies" && exit 1
 exit 0
-}
+} #}}}
+
 ##  debian specific stuff
-debian(){
+debian(){ #{{{
 debug 1 "$FUNCNAME() $*"
 
 #must be tested for stable
@@ -1298,8 +1354,7 @@ if [[ $missing ]]; then
 else
     echo ok
 fi
-
-}
+} #}}}
 
 unsupported_dist_note(){
 echo "there are currently no checks for you distribution / OS available"
@@ -1377,7 +1432,6 @@ done
 
 print_cfg(){
 local changed=false
-
 local changes="$(
 for item in "${!conf[@]}"; do
     if [[ "${conf["$item"]}" != "${g_old_conf["$item"]}" ]]; then
@@ -1392,7 +1446,6 @@ if [[ "$changes" ]]; then
 else
     echo "The configuration did not Change!"
 fi
-
 }
 
 echo_padd(){
@@ -1421,27 +1474,27 @@ echo $args "$msg"
 }
 
 echo_long(){
-    # breaks a long line in single lines that fit width
-    # if the first argument is -f the second is inseted
-    # in the beginning of the lines
+# breaks a long line in single lines that fit width
+# if the first argument is -f the second is inseted
+# in the beginning of the lines
 
-    local fill=""
-    if [[ "$1" == "-f" ]]; then
-        fill="$2"
-        shift 2
+local fill=""
+if [[ "$1" == "-f" ]]; then
+    fill="$2"
+    shift 2
+fi
+# break output at width
+local line_out="$fill"
+local width=80
+for item in $@; do
+    if (( (${#line_out} + ${#item})  > width )); then
+        echo -ne "${line_out}\n"
+        line_out="${fill}"
+    else
+        line_out+="$item "
     fi
-    # break output at width
-    local line_out="$fill"
-    local width=80
-    for item in $@; do
-        if (( (${#line_out} + ${#item})  > width )); then
-            echo -ne "${line_out}\n"
-            line_out="${fill}"
-        else
-            line_out+="$item "
-        fi
-    done
-    echo -ne "${line_out}\n"
+done
+echo -ne "${line_out}\n"
 }
 
 print_array(){
@@ -1572,8 +1625,6 @@ done
 echo
 }
 
-
-
 ### fancy output functions
 ### taken from easy e17.sh - the code ist mostly unrevised:(
 del_word(){
@@ -1649,8 +1700,7 @@ done
 del_word "$name[|-|]"
 }
 
-function write_appname ()
-{
+write_appname(){
     echo_padd 28 . -n "$@"
 }
 
@@ -1668,7 +1718,7 @@ exit 0
 } #}}}
 
 
-default_global_cfg(){
+default_global_cfg(){ #{{{
 #
 # default content of ~/.git_e17
 #
@@ -1687,9 +1737,9 @@ printf '%b\n' \
    "git_e17_path=${conf[git_e17_path]%/}" \
    "# default config file" \
    "config_file=default.conf"
-}
+} #}}}
 
-default_local_cfg(){
+default_local_cfg(){ #{{{
 printf '%b\n' \
    "# git_e17 - local configuration file" \
    "#" \
@@ -1712,8 +1762,8 @@ printf '%b\n' \
    "cflags=-g" \
    "# additional LDFLAGS" \
    "#ldflags=" \
-   "# clean \
-   "#clean=false \
+   "# clean " \
+   "#clean=false " \
    "# packagelist to use basic, full" \
    "packagelist=full" \
    "# branch to checkout" \
@@ -1732,7 +1782,7 @@ printf '%b\n' \
    "" \
    "## extra configure flags" \
    "evas_conf_args=--enable-gl-x11"
-}
+} #}}}
 
 ### program starts here
 # well it can be done as root

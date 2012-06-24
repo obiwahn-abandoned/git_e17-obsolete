@@ -38,7 +38,7 @@ g_current_commit=""
 g_current_branch=""
 g_old_commit=""
 
-# signales return status of some operations as
+# signals return status of some operations as
 # we lack proper return values
 g_current_failed=false
 g_clean_phase=false
@@ -68,7 +68,7 @@ debug 1 "$FUNCNAME() $*"
 
 ## interpret command line
 get_opts "$@"
-list ## list availalbe packages
+list ## list available packages
 ## configuration
 get_git_e17_path_from_global_cfg
 read_local_cfg
@@ -104,84 +104,83 @@ debug 1 "$FUNCNAME() $*"
 #
 # This functions displays the help file
 #
-cat << EOF
 
-git_e17 - simple script for building enlightenment 17
-
-git-e17 [options] action [only <packagelist>]
-
-actions:
-    check
-        check if your system is ready to install e17
-    build
-        build everything
-    update
-        update your e17 to the latest version
-    list
-        list all available packages
-    uninstall
-        uninstall e17
-only:
-    use only named packages
-
-options:
-    -h | --help  / --dev-help
-        show help / developer help
-            developer help will give you some more options
-    --git-e17-path
-        workdir for this script. It will contain the source, config and log
-        files and dirs in which e17 is build. The default git_e17_path sould
-        be set in ~/.git_e17
-    -i | --ignore pkg1,pkg2,pkg2
-    -s | --skip-errors
-        skip non fatal errors
-    -a | --animate
-EOF
+printf '%b\n' \
+   "git_e17 - simple script for building enlightenment 17" \
+   "" \
+   "git-e17 [options] action [only <packagelist>]" \
+   "actions:" \
+   "    check" \
+   "        check if your system is ready to install e17" \
+   "    build" \
+   "        build everything" \
+   "    update" \
+   "        update your e17 to the latest version" \
+   "    list" \
+   "         list all available packages" \
+   "    uninstall" \
+   "        uninstall e17" \
+   "" \
+   "only:" \
+   "     use only named packages" \
+   "" \
+   "options:" \
+   "    -h | --help  / --dev-help" \
+   "        show help / developer help" \
+   "        developer help will give you some more options" \
+   "    --git-e17-path" \
+   "        workdir for this script. It will contain the source, config and log" \
+   "        files and dirs in which e17 is build. The default git_e17_path sould" \
+   "        be set in ~/.git_e17" \
+   "    -i | --ignore pkg1,pkg2,pkg2" \
+   "    -s | --skip-errors" \
+   "        skip non fatal errors" \
+   "    -a | --animate" \
+   ""
 }
 devhelp(){
 debug 1 "$FUNCNAME() $*"
 #
 # This functions displays the developer help file
 #
-cat << EOF
 
-extra actions:
-    devupdate
-        almost the same as update but does not imply --fetch-reset-hard
-    fromscratch
-        delete e17 installation and build e17 from scratch
-        ATTENTION: this will rm -fr $install_path
-                   do not do is if you installed to /usr/local
-
-extra options:
-    --conf <conf>
-        config file - especially useful if you want multiple installs
-        ONLY CONF NAME - NO FULL PATHS!!!
-    --cflags  "flags"
-    --ldflags "flags
-        you need the quotes!!
-    -b | --branch <branch>
-        branch, tag or commit to use
-    -r | --remote <remote>
-        select remote pull/fetch
-    -p | --pull
-        does a git pull --no-commit
-    -f | --fetch-reset-hard
-        ATTENTION: this will delete your local changes!!!!
-        fetchs update from remote finds out your current branch
-        and will do a git reset --hard remote/currentbrach
-
-    --clean / --distclean / --uninstall
-        make clean / distclean before building
-    --vmake
-        more verbse make (V=1)
-    --conf_args
-        extra configure args - for all packages
-    -v | --verbose
-        be more verbose during the build
-    -d | --debug
-        enable script debugging mode
-EOF
+printf '%b\n' \
+   "extra actions:" \
+   "    devupdate" \
+   "        almost the same as update but does not imply --fetch-reset-hard" \
+   "    fromscratch" \
+   "        delete e17 installation and build e17 from scratch" \
+   "        ATTENTION: this will rm -fr $install_path" \
+   "                   do not do is if you installed to /usr/local" \
+   "" \
+   "extra options:" \
+   "    --conf <conf>" \
+   "        config file - especially useful if you want multiple installs" \
+   "        ONLY CONF NAME - NO FULL PATHS!!!" \
+   "    --cflags  flags" \
+   "    --ldflags flags" \
+   "        you need the quotes!!" \
+   "    -b | --branch <branch>" \
+   "        branch, tag or commit to use" \
+   "    -r | --remote <remote>" \
+   "        select remote pull/fetch" \
+   "    -p | --pull" \
+   "        does a git pull --no-commit" \
+   "    -f | --fetch-reset-hard" \
+   "        ATTENTION: this will delete your local changes!!!!" \
+   "        fetches update from remote finds out your current branch" \
+   "        and will do a git reset --hard remote/currentbrach" \
+   "" \
+   "    --clean / --distclean / --uninstall" \
+   "        make clean / distclean before building" \
+   "    --vmake" \
+   "        more verbse make (V=1)" \
+   "    --conf_args" \
+   "        extra configure args - for all packages" \
+   "    -v | --verbose" \
+   "        be more verbose during the build" \
+   "    -d | --debug" \
+   "        enable script debugging mode"
 }
 ### end help }}}
 
@@ -291,17 +290,17 @@ do
             echo "found option: --ignore '$2'"
             shift 2
             ;;
-        -h|--help)
-            echo ""
-            help
-            echo "found option: --help"
-            exit 0
-            ;;
         --dev-help)
             echo ""
             help
-            devhelp
             echo "found option: --dev-help"
+            devhelp
+            exit 0
+            ;;
+        -h|--help)
+            echo ""
+            echo "found option: --help"
+            help
             exit 0
             ;;
         *) #no more options beakb
@@ -338,34 +337,22 @@ get_git_e17_path_from_global_cfg(){ #{{{
 debug 1 "$FUNCNAME() $*"
 section " reading global configuration in ~/.git_e17 "
 #
-# Read parts of the gobal config
-#   This function tries to read the gloabl configuration file
-#   or creates it. If the file existes two important config
-#   items are read when they are not set by commandline
+#   This function tries to read the global configuration file
+#   or creates it. If the file exists two important config
+#   items are read when they are not set by command line
 #
 # Out:
 #   sets: conf[git_e17_path], conf[config_file]
 #
 copy_cfg
 
+local conf_file="$HOME/.git_e17"
+
 debug 1 "git e17 path: $1"
-if [[ ! -f $HOME/.git_e17 ]]; then
-    cat > "$HOME/.git_e17" << EOF
-# git_e17 - global configuration file
-#
-# INFO:
-# - local configurations and commandline options override this file
-# - lines starting with # are ignored
-# - make sure your user has write access to all choosen paths
-# - you are able to set the path outside the git e17 path
+if [[ ! -f "$conf_file" ]]; then
+    #create config
+    echo "$(default_global_cfg)" > "$conf_file" || ferr "Unable to create $conf_file"
 
-# item=val - NO SPACES - NO QUOTES
-
-# default git_e17_path
-git_e17_path=${conf[git_e17_path]%/}
-# default config file
-config_file=default.conf
-EOF
     if [[ ! ${conf[git_e17_path]} ]]; then
         echo -e "\nPlease edit your fresh created ~/.git_e17\nand add the path to the default git e17 path."
     fi
@@ -377,14 +364,12 @@ while IFS='=' read -r item value; do
         conf["$item"]=${conf["$item"]:-"$value"}
         debug 3 "conf[$item]=$value"
     fi
-done <<< "$(grep -v ^# "$HOME/.git_e17" | grep -v ^$ )"
+done <<< "$(grep -v ^# "$conf_file" | grep -v ^$ )"
 
 #final check if path is set
 debug 2 "The git e17 path must be set by now!! git_e17_path=${conf[git_e17_path]}"
 if [[ ! ${conf[git_e17_path]} ]]; then
-    local out="git_e17_path is not set:("
-          out="$out${e}please set it via commandline or ~/.git_e17"
-    ferr -e "$out"
+    ferr -e "git_e17_path is not set:(\n${e}please set it via commandline or ~/.git_e17"
 fi
 
 #remove trailing slash from git_e17_path
@@ -420,53 +405,8 @@ copy_cfg
 local new_cfg=false
 local conf_file="${conf[git_e17_path]}/${conf[config_file]}"
 if [[ ! -f "$conf_file" ]]; then
-    #create default config
+    echo "$(default_local_cfg)" > "$conf_file" || ferr "Unable to create $conf_file"
     new_cfg=true
-    cat > "$conf_file" << EOF || ferr "Unable to create $conf_file"
-# git_e17 - local configuration file
-#
-# INFO:
-# - lines starting with # are ignored
-# - make sure your user has write access to all choosen paths
-# - you are able to set the paths outside the git e17 directory
-
-# item=val - NO SPACES - NO QUOTES
-
-# this is the target dir of your installation
-install_path=/usr/local/e17
-# git repoistory directory
-src_path=${conf[git_e17_path]}/e.org.git
-# dir in which the
-build_path=${conf[git_e17_path]}/build
-log_path=${conf[git_e17_path]}/log
-
-# additional CFLAGS
-cflags=-g
-# additional LDFLAGS
-#ldflags=
-# clean: clean, distclean, unistall
-#clean=distclean
-# packagelist to use basic, full
-packagelist=full
-# branch to checkout
-#branch=master
-# remote to pull from
-#remote=origin
-
-# on on compile error action: ask,exit,continue
-on_error=ask
-# number ot threads
-threads=8
-#niceness level
-nice=19
-#create documentation
-doc=false
-
-## extra configure flags
-evas_conf_args=--enable-gl-x11
-
-EOF
-    #end of default config
 fi
 
 # read config
@@ -670,7 +610,7 @@ if [[ ! -d ${conf[src_path]} ]]; then
     git clone -v --progress "${conf[git_repo]}" "$src_path" || ferr "unable to clone repository"
 fi
 #change to repo
-echo "changeing into $src_path"
+echo "changing into $src_path"
 cd "$src_path" || ferr "failed to cd in $src_path"
 
 #get name of branch
@@ -693,7 +633,7 @@ local remote="${conf[remote]}"
 local branch="${conf[branch]:-"$g_current_branch"}"
 
 #select right branch
-echo "checking out $branch so that you local $branch matchtes the remote branch"
+echo "checking out $branch so that you local $branch matches the remote branch"
 echo "i think this is a good requirement to save the average person from harm:) "
 if [[ -n "$branch" && "$branch" != "$g_current_branch" ]]; then
     if ! git checkout ${conf[branch]}; then
@@ -936,7 +876,7 @@ done
 [[ $packages_failed ]] && echo "The following packages failed to build: $packages_failed"
 } #}}}
 
-### find the sourcecode of a pacakge
+### find the source code of a package
 find_local_path (){ #{{{
 debug 1 "$FUNCNAME() $*"
 #
@@ -1100,7 +1040,7 @@ debug 1 "$FUNCNAME() $*"
 # a better way than writing $@ to call the command would be nice
 #
 # the 3 different calls might be handled in another way
-# maybe it is better to write a seperate run_animated function
+# maybe it is better to write a separate run_animated function
 #
 
 local pkg="$1"
@@ -1200,7 +1140,7 @@ if ! $g_current_failed; then
     echo
     $g_clean_phase || pkg_err $pkg "Failed to build $pkg"
         :
-fi #end of prechecks of
+fi #end of pre checks of
 } #}}}
 
 
@@ -1504,7 +1444,7 @@ g_current_failed=true
 err "$@"
 case ${conf[on_error]} in
     exit) exit 1 ;;
-    ask)  local rv="$(ask_yn "The Programm encountered an error - do you want to continue?")"; [[ "$rv" == "no" ]] && exit 1 ;;
+    ask)  local rv="$(ask_yn "The Program encountered an error - do you want to continue?")"; [[ "$rv" == "no" ]] && exit 1 ;;
 esac
 }
 
@@ -1566,7 +1506,7 @@ esac
 debug(){
 #
 # This function displays debug information
-# when the debug level set via commandline
+# when the debug level set via command line
 # is greater or equal the level passed to
 # the function
 #
@@ -1610,7 +1550,7 @@ echo
 
 
 ### fancy output functions
-### taken from easy e17.sh - the code ist mostly unreviewed:(
+### taken from easy e17.sh - the code ist mostly unrevised:(
 del_word(){
 cnt=0
 max=${#1}
@@ -1701,10 +1641,78 @@ echo
 
 exit 0
 } #}}}
-### programm starts here
+
+
+default_global_cfg(){
+#
+# default content of ~/.git_e17
+#
+printf '%b\n' \
+   "# git_e17 - global configuration file" \
+   "#" \
+   "# INFO:" \
+   "# - local configurations and command line options override this file" \
+   "# - lines starting with # are ignored" \
+   "# - make sure your user has write access to all chosen paths" \
+   "# - you are able to set the path outside the git e17 path" \
+   "" \
+   "# item=val - NO SPACES - NO QUOTES" \
+   "" \
+   "# default git_e17_path" \
+   "git_e17_path=${conf[git_e17_path]%/}" \
+   "# default config file" \
+   "config_file=default.conf"
+}
+
+default_local_cfg(){
+printf '%b\n' \
+   "# git_e17 - local configuration file" \
+   "#" \
+   "# INFO:" \
+   "# - lines starting with # are ignored" \
+   "# - make sure your user has write access to all chosen paths" \
+   "# - you are able to set the paths outside the git e17 directory" \
+   "" \
+   "# item=val - NO SPACES - NO QUOTES" \
+   "" \
+   "# this is the target dir of your installation" \
+   "install_path=/usr/local/e17" \
+   "# git repoistory directory" \
+   "src_path=${conf[git_e17_path]}/e.org.git" \
+   "# dir in which the" \
+   "build_path=${conf[git_e17_path]}/build" \
+   "log_path=${conf[git_e17_path]}/log" \
+   "" \
+   "# additional CFLAGS" \
+   "cflags=-g" \
+   "# additional LDFLAGS" \
+   "#ldflags=" \
+   "# clean \
+   "#clean=false \
+   "# packagelist to use basic, full" \
+   "packagelist=full" \
+   "# branch to checkout" \
+   "#branch=master" \
+   "# remote to pull from" \
+   "#remote=origin" \
+   "" \
+   "# on on compile error action: ask,exit,continue" \
+   "on_error=ask" \
+   "# number ot threads" \
+   "threads=8" \
+   "#niceness level" \
+   "nice=19" \
+   "#create documentation" \
+   "doc=false" \
+   "" \
+   "## extra configure flags" \
+   "evas_conf_args=--enable-gl-x11"
+}
+
+### program starts here
 # well it can be done as root
 distcheck "$@"
-# make sure main programm ist not run as root as it cause serious damage
+# make sure main program ist not run as root as it cause serious damage
 # i like to be sloppy - if you override this don't blame me:P
 if [[ $(id -u) -eq 0 ]]; then
     echo "You should not run scripts as root! "

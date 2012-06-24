@@ -454,7 +454,7 @@ packagelist=full
 #remote=origin
 
 # on on compile error action: ask,exit,continue
-on_error=skip
+on_error=ask
 # number ot threads
 threads=8
 #niceness level

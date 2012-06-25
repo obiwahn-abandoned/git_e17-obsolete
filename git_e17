@@ -18,7 +18,7 @@
 ### global variable definitions {{{
 
 basic_lib="eina eet evas ecore efreet eio eeze e_dbus embryo edje azy ethumb elementary"
-basic_bin="e elsa exchange"
+basic_bin="e exchange"
 themes="darkness detourious efenniht"
 
 modules_lib="libeweather"
@@ -894,7 +894,8 @@ debug 1 "$FUNCNAME() $*"
 #
 # add to failed
 #
-msg -e " - Adding $1 to failed list/file/conf entry wahtever (not implemented)\n"
+msg -e " - Adding $1 to failed list of failed packages\n"
+packages_failed+="$pkg "
 } #}}}
 
 ### mark package as successfully build
@@ -1050,7 +1051,7 @@ for pkg in $packages; do
     fi
 done
 
-[[ $packages_failed ]] && echo "The following packages failed to build: $packages_failed"
+[[ $packages_failed ]] && echo -e "\nThe following packages failed to build:\n $packages_failed"
 } #}}}
 
 ### find the source code of a package
@@ -1912,7 +1913,7 @@ printf '%b\n' \
 # make sure main program ist not run as root as it cause serious damage
 # i like to be sloppy - if you override this don't blame me:P
 if [[ $(id -u) -eq 0 ]]; then
-    echo "You should not run scripts as root! "
+    echo "${red}You should not run scripts as root!${norm}"
 fi
 main "$@"
 
@@ -1920,21 +1921,27 @@ ${conf[noob_info]} || { echo; exit 0; }
 section " info "
 
 printf '%b\n' \
-   "Your installation is successful if ${bold}e${boldoff} is not among the list of failed packages." \
+   "Your installation is successful if ${bold}e${norm} is not among the list of failed packages." \
    "" \
-   "You can rebuild failed packages with ${bold}./git_e17 build only${boldoff} names of failed packages." \
-   "To update you installation use ${bold}./git_e17 update${boldoff}" \
+   "You can rebuild failed packages with ${bold}./git_e17 build only names of failed. ${norm}" \
+   "To update you installation use ${bold}./git_e17 update${norm}" \
    "" \
-   "You need to add the following lines to your ${bold}~/.profile${boldoff} or shells profile file:" \
+   "You ${red}need${norm} to add the following lines to your ${green}~/.profile${norm} or shells profile file:" \
+   "$green" \
+   "    # Make e17 bins like enlightenment_start,eet,emprint avilable from any location" \
+   "    export PATH=${conf[install_path]}/bin:\$PATH" \
    "" \
-   "# Make e17 bins like enlightenment_start,eet,emprint avilable from any location" \
-   "export PATH=${conf[install_path]}/bin:\$PATH" \
+   "    # Add new Python libs to PYTHONPATH" \
+   "    export PYTHONPATH=$(python -c "import distutils.sysconfig; print distutils.sysconfig.get_python_lib(prefix='$install_path')" 2>/dev/null):\$PYTHONPATH" \
    "" \
-   "# Add new Python libs to PYTHONPATH" \
-   "export PYTHONPATH=$(python -c "import distutils.sysconfig; print distutils.sysconfig.get_python_lib(prefix='$install_path')" 2>/dev/null):\$PYTHONPATH" \
+   "    # Add e17 libs to your users linker search path " \
+   "    # Doing it like this is considered harmful by some people and most programs are" \
+   "    # compiled with RPATH anyway - Read on LD_LIBRARY_PATH!!!" \
+   "    #export LD_LIBRARY_PATH=${conf[install_path]}/bin:\$LD_LIBRARY_PATH" \
+   "$norm" \
    "" \
-   "# Add e17 libs to your users linker search path " \
-   "# Doing it like this is considered harmful by some people and most programs are" \
-   "# compiled with RPATH anyway - Read on LD_LIBRARY_PATH!!!" \
-   "#export LD_LIBRARY_PATH=${conf[install_path]}/bin:\$LD_LIBRARY_PATH" \
+   "In order to use enlightenment with ${bold}gdm, kdm, xdm ... ${norm} you ${red}need${norm} to:" \
+   "${green}sudo ln -s ${conf[install_path]}/share/xessions/enlightenment.desktop /usr/share/xsessions/$norm" \
+   "If it does not work ask for an ${red}equivalent${norm} of ${red}/usr/share/xessions${norm}" \
+   "at ${green}your distributions$norm website or #yourdist@frenode.net" \
    ""

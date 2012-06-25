@@ -812,13 +812,16 @@ elif ${conf[pull]};then
     echo "git diff"
     echo -e " - This collects only changes that are not already in the index or committed"
     local new_files_tmp="$(git diff --name-only)"
-    new_files="$(grep -v -E "/po/.*\.po$|/INSTALL$" <<< "$new_files_tmp")"
+    new_files="$(git diff --name-only)"
+    #local new_files_tmp="$(git diff --name-only)"
+    #new_files="$(grep -v -E "/po/.*\.po$|/INSTALL$" <<< "$new_files_tmp")"
     debug 2 "$new_files"
 else
     echo "git diff"
     echo -e " - This collects only changes that are not already in the index or committed"
-    local new_files_tmp="$(git diff --name-only)"
-    new_files="$(grep -v -E "/po/.*\.po$|/INSTALL$" <<< "$new_files_tmp")"
+    new_files="$(git diff --name-only)"
+    #local new_files_tmp="$(git diff --name-only)"
+    #new_files="$(grep -v -E "/po/.*\.po$|/INSTALL$" <<< "$new_files_tmp")"
     debug 2 "$new_files"
 fi
 
@@ -831,8 +834,10 @@ local new_dirs="$(
 )"
 echo "$ok"
 
-debug 1 sleep "new_dirs: $new_dirs"
+local new_dirs_uniq="$( echo "$new_dirs" | sort | uniq 2>/dev/null)"
+debug 1 sleep "new_dirs: $new_dirs_uniq"
 
+## Speed this up
 write_name " - building path map"
 local -A path_map
 for pkg in $packages; do
@@ -853,7 +858,7 @@ debug 3 "calulationg new from path map"
 for pkg in $packages; do
     debug 3 "map $pkg: ${path_map[$pkg]}"
     if [[ -n "${path_map[$pkg]}" ]]; then
-        if echo $new_dirs | grep -q -E  "${path_map[$pkg]}.*" ; then
+        if echo $new_dirs_uniq | grep -q -E  "${path_map[$pkg]}.*" ; then
             packages_new+="$pkg "
         fi
     fi

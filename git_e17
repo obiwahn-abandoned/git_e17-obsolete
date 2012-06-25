@@ -16,18 +16,32 @@
 (( $BASH_VERSINFO < 4 )) && echo -e "\nThis Script requires at least bash version >= 4\n" && exit 1
 
 ### global variable definitions {{{
-efl_basic="eina eet evas ecore efreet eio eeze e_dbus embryo edje azy ethumb elementary"
-efl_extra="imlib2 emotion enlil libast python-evas python-ecore python-e_dbus python-edje python-emotion python-elementary shellementary"
-bin_basic="exchange e"
-bin_extra="e_cho e-type e_phys eblock econcentration editje eenvader.fractal elsa emote empower enjoy enki ephoto eskiss Eterm expedite exquisite eyelight rage terminology"
-e_modules_efl="libeweather"
-e_modules_bin="emprint exalt"
-e_modules_extra="alarm calendar comp-scale cpu deskshow diskio drawer eektool elfe empris engage eooorg everything-aspell everything-mpris everything-pidgin everything-places everything-shotgun everything-skeleton everything-tracker everything-wallpaper everything-websearch eweather exalt-client exebuf execwatch flame forecasts iiirk itask mail mem moon mpdule net news penguins photo places quickaccess rain screenshot skel slideshow snow taskbar tclock uptime weather winlist-ng winselector wlan"
-e_themes="darkness detourious efenniht"
 
-packages_basic="$efl_basic $bin_basic $e_themes"
-packages_half="$efl_basic $bin_basic $e_themes $e_modules_efl $e_modules_bin $e_modules_extra"
-packages_full="$efl_basic $bin_basic $e_themes $e_modules_efl $e_modules_bin $e_modules_extra $efl_extra $bin_extra"
+basic_lib="eina eet evas ecore efreet eio eeze e_dbus embryo edje azy ethumb elementary"
+basic_bin="elsa exchange e"
+themes="darkness detourious efenniht"
+
+modules_lib="libeweather"
+modules_bin="emprint exalt"
+modules_extra="alarm calendar comp-scale cpu deskshow diskio drawer eektool elfe empris engage eooorg everything-aspell everything-mpris everything-pidgin everything-places everything-shotgun everything-skeleton everything-tracker everything-wallpaper everything-websearch eweather exalt-client exebuf execwatch flame forecasts iiirk itask mail mem moon mpdule net news penguins photo places quickaccess rain screenshot skel slideshow snow taskbar tclock uptime weather winlist-ng winselector wlan"
+
+extra_lib="imlib2 emotion enlil libast python-evas python-ecore python-e_dbus python-edje python-emotion python-elementary shellementary"
+extra_bin="e_cho e-type e_phys eblock econcentration editje eenvader.fractal elsa emote empower enjoy enki ephoto eskiss Eterm expedite exquisite eyelight rage terminology"
+
+declare -A packages_msg
+packages_msg[__basic_lib]="enlightenment foundation libraries"
+packages_msg[__basic_bin]="basic binaries"
+packages_msg[__themes]="themes"
+packages_basic="__basic_lib $basic_lib __basic_bin $basic_bin __themes $themes"
+
+packages_msg[__modules_lib]="module libraries"
+packages_msg[__modules_bin]="module binaries"
+packages_msg[__modules_extra]="module extras"
+packages_half="$packages_basic __modules_lib $modules_lib __modules_bin $modules_bin __modules_extra $modules_extra"
+
+packages_msg[__extra_lib]="extra libraries"
+packages_msg[__extra_bin]="extra binaries"
+packages_full="$packages_half __extra_lib $extra_lib __extra_bin $extra_bin"
 
 declare -A conf
 declare -A g_old_conf
@@ -61,6 +75,11 @@ boldoff=$(tput sgr0)
 c_red=$(tput setaf 1)
 c_green=$(tput setaf 2)
 c_norm=$(tput setaf 7)
+
+green="${bold}${c_green}"
+red="${bold}${c_red}"
+norm="${c_norm}${boldoff}"
+
 ok="${bold}${c_green}OK${c_norm}${boldoff}"
 fail="${bold}${c_red}FAILED${c_norm}${boldoff}"
 error="${bold}${c_red}Error:${c_norm}${boldoff}"
@@ -114,11 +133,12 @@ debug 1 "$FUNCNAME() $*"
 printf '%b\n' \
    "git_e17 - simple script for building enlightenment 17" \
    "" \
-   "git-e17 [options] action [only <packagelist>]" \
+   "./git_e17 [options] ${green}action${norm} [only <packagelist>]" \
+   "" \
    "actions:" \
-   "    build" \
+   "    ${green}build${norm}" \
    "        build everything" \
-   "    update" \
+   "    ${green}update${norm}" \
    "        update your e17 to the latest version" \
    "    list" \
    "         list all available packages" \
@@ -131,11 +151,11 @@ printf '%b\n' \
    "options:" \
    "    -h | --help  / ${bold}--dev-help${boldoff}" \
    "        show help / developer help" \
-   "        ${bold}developer help will give you more actions and options${boldoff}" \
-   "    --git-e17-path" \
+   "        ${bold}developer help will give you more actions and options" \
+   "        ${green}--git-e17-path${norm}" \
    "        workdir for this script. It will contain the source, config and log" \
    "        files and dirs in which e17 is build. The default git_e17_path sould" \
-   "        be set in ~/.git_e17" \
+   "        be ${green}set in ~/.git_e17${norm}" \
    "    -i | --ignore pkg1,pkg2,pkg2" \
    "    -s | --skip-errors" \
    "        skip non fatal errors" \
@@ -150,6 +170,7 @@ debug 1 "$FUNCNAME() $*"
 #
 
 printf '%b\n' \
+   "" \
    "Enable devmode with --dev on command line or dev=true in a configuration file." \
    "" \
    "changed actions: (when in dev mode actions do not enforce additional options) " \
@@ -158,8 +179,6 @@ printf '%b\n' \
    "    update" \
    "        check for updates before building" \
    "extra actions:" \
-   "    check" \
-   "        check if your system is ready to install e17" \
    "    build" \
    "        build everything" \
    "    update" \
@@ -168,6 +187,9 @@ printf '%b\n' \
    "        delete e17 installation and build e17 from scratch" \
    "        ATTENTION: this will rm -fr $install_path" \
    "                   do not do is if you installed to /usr/local" \
+   "    check" \
+   "        check if your system is ready to install e17" \
+   "        (In dev mode the check is not done on every run.) "\
    "" \
    "extra options:" \
    "    --dev" \
@@ -207,7 +229,7 @@ printf '%b\n' \
 ### parse command line
 get_opts(){ #{{{
 debug 1 "$FUNCNAME() $*"
-section " reading command line options "
+section " reading command "
 #
 # This function reads the command line arguments
 #
@@ -315,14 +337,12 @@ do
             shift 1
             ;;
         --dev-help)
-            echo ""
-            help
             echo "found option: --dev-help"
+            help
             devhelp
             exit 0
             ;;
         -h|--help)
-            echo ""
             echo "found option: --help"
             help
             exit 0
@@ -815,26 +835,32 @@ debug 1 sleep "new_dirs: $new_dirs"
 
 write_name " - building path map"
 local -A path_map
-( for pkg in $packages; do
+for pkg in $packages; do
     find_local_path "$pkg" "/trunk"
     local path="${conf[current_package_path]}"
     path=${path##"$src_path"}
     path_map["$pkg"]="trunk/$path/"
     debug 3 "map $pkg: ${path_map[$pkg]}"
-done ) &
+done
 
-rotate $! "" "no_file"
-wait
+#rotate does not work here
+#rotate $! "" "no_file"
+#wait
 echo -e "$ok \n"
 
 packages_new=""
+debug 3 "calulationg new from path map"
 for pkg in $packages; do
-    if [[ "${path_map[$pkg]}" ]]; then
+    debug 3 "map $pkg: ${path_map[$pkg]}"
+    if [[ -n "${path_map[$pkg]}" ]]; then
         if echo $new_dirs | grep -q -E  "${path_map[$pkg]}.*" ; then
             packages_new+="$pkg "
         fi
     fi
 done
+
+debug 1 "$packages_new"
+debug 4 "$(exit)"
 
 packages="$packages_new"
 if [[ "$packages" ]]; then
@@ -862,7 +888,7 @@ debug 1 "$FUNCNAME() $*"
 #
 # add to failed
 #
-echo -e "\nAdding $1 to failed list/file/conf entry wahtever (not implemented)\n"
+msg -e " - Adding $1 to failed list/file/conf entry wahtever (not implemented)\n"
 } #}}}
 
 ### mark package as successfully build
@@ -958,6 +984,11 @@ for pkg in $packages; do
     # within this loop for output
     #
 
+    if [[ $pkg == __* ]]; then
+        echo -e "${packages_msg["$pkg"]} \n"
+        continue
+    fi
+
     msg "- trying to build $pkg ..."
 
     #initialize vars
@@ -1004,6 +1035,11 @@ for pkg in $packages; do
         else
             #for animation
             msg_ani "$ok"
+            if [[ $pkg == e ]] && ! ${conf[dev]}; then
+                echo -e "E17 is installed :) The rest is optional!!\nDo not bug me or people in #e if something fails!"
+            else
+                echo
+            fi
             # REMOVE PKG FROM FAILED
             pkg_success "$pkg"
         fi
@@ -1043,7 +1079,7 @@ prune=${prune#-o}
 #debug-x
 dirs="$(find "$src_path" -maxdepth 3 -type d \( $prune \) -prune -o -type d -name "$name" -printf "%P\n" )"
 #debug+x
-debug 2 "$dirs"
+debug 5 "$dirs"
 
 #pick the one with the shortest path
 local path_len=666
@@ -1053,10 +1089,10 @@ while read -r path ;do
         path_len=${#path}
     fi
 done <<< "$dirs"
-debug 1 "path selected for $pkg: $src_path/${conf[current_package_path]}"
+debug 5 "path selected for $pkg: $src_path/${conf[current_package_path]}"
 
 if [[ -z "${conf[current_package_path]}" ]] ; then
-    nerr "Source path for $pkg was not found!"
+    debug 1 "Source path for $pkg was not found!"
 fi
 } #}}}
 
@@ -1649,8 +1685,10 @@ esac
 }
 
 cmd_error(){
-section "-"
-ferr -e "No vaild command! See --help for usage.\n"
+#section ""
+err -e "No vaild command! See --help for usage.\n"
+echo -e "       Or try: ./git_e17 --git-e17-path ~/e17_install build\n"
+exit 1
 }
 
 ## helper debuging
@@ -1878,7 +1916,11 @@ ${conf[noob_info]} || { echo; exit 0; }
 section " info "
 
 printf '%b\n' \
-   "Your installation is successfull if ${bold}e${boldoff} is not among the list of failed packages." \
+   "Your installation is successful if ${bold}e${boldoff} is not among the list of failed packages." \
+   "" \
+   "You can rebuild failed packages with ${bold}./git_e17 build only${boldoff} names of failed packages." \
+   "To update you installation use ${bold}./git_e17 update${boldoff}" \
+   "" \
    "You need to add the following lines to your ${bold}~/.profile${boldoff} or shells profile file:" \
    "" \
    "# Make e17 bins like enlightenment_start,eet,emprint avilable from any location" \

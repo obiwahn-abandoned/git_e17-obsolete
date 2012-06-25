@@ -18,7 +18,7 @@
 ### global variable definitions {{{
 
 basic_lib="eina eet evas ecore efreet eio eeze e_dbus embryo edje azy ethumb elementary"
-basic_bin="elsa exchange e"
+basic_bin="e elsa exchange"
 themes="darkness detourious efenniht"
 
 modules_lib="libeweather"
@@ -29,18 +29,18 @@ extra_lib="imlib2 emotion enlil libast python-evas python-ecore python-e_dbus py
 extra_bin="e_cho e-type e_phys eblock econcentration editje eenvader.fractal elsa emote empower enjoy enki ephoto eskiss Eterm expedite exquisite eyelight rage terminology"
 
 declare -A packages_msg
-packages_msg[__basic_lib]="enlightenment foundation libraries"
-packages_msg[__basic_bin]="basic binaries"
-packages_msg[__themes]="themes"
+packages_msg[__basic_lib]="\nenlightenment foundation libraries:"
+packages_msg[__basic_bin]="\nbasic binaries:"
+packages_msg[__themes]="themes:\n"
 packages_basic="__basic_lib $basic_lib __basic_bin $basic_bin __themes $themes"
 
-packages_msg[__modules_lib]="module libraries"
-packages_msg[__modules_bin]="module binaries"
-packages_msg[__modules_extra]="module extras"
+packages_msg[__modules_lib]="\nmodule libraries:"
+packages_msg[__modules_bin]="\nmodule binaries:"
+packages_msg[__modules_extra]="\nmodule extras"
 packages_half="$packages_basic __modules_lib $modules_lib __modules_bin $modules_bin __modules_extra $modules_extra"
 
-packages_msg[__extra_lib]="extra libraries"
-packages_msg[__extra_bin]="extra binaries"
+packages_msg[__extra_lib]="\nextra libraries:"
+packages_msg[__extra_bin]="\nextra binaries:"
 packages_full="$packages_half __extra_lib $extra_lib __extra_bin $extra_bin"
 
 declare -A conf
@@ -990,7 +990,7 @@ for pkg in $packages; do
     #
 
     if [[ $pkg == __* ]]; then
-        echo -e "${packages_msg["$pkg"]} \n"
+        echo -e "${bold}${packages_msg["$pkg"]}${norm}"
         continue
     fi
 
@@ -1041,7 +1041,7 @@ for pkg in $packages; do
             #for animation
             msg_ani "$ok"
             if [[ $pkg == e ]] && ! ${conf[dev]}; then
-                echo -e "E17 is installed :) The rest is optional!!\nDo not bug me or people in #e if something fails!"
+                echo -e "${bold}E17 is installed :) The rest is optional!!\nDo not bug me or people in #e if other packages fail!${norm}"
             fi
             # REMOVE PKG FROM FAILED
             pkg_success "$pkg"

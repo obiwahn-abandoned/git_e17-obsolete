@@ -10,7 +10,7 @@
 #                                                                       #
 # License: BSD licence                                                  #
 # Get the latest version at: https://github.com/ObiWahn/git_e17         #
-# Coded by Jan Christoph Uhde (linux@obiwahn.org)                       #
+# Coded by Jan Christoph Uhde - linux (a) obiwahn dot org               #
 #########################################################################
 
 (( $BASH_VERSINFO < 4 )) && echo -e "\nThis Script requires at least bash version >= 4\n" && exit 1
@@ -623,9 +623,9 @@ section " checking configuration "
 
 ## FIXME ##
 conf[deto]="$HOME/.e/e/themes" ## FIX-FOR-A-THEME
-local paths="deto install_path git_e17_path log_path src_path build_path log_path"
+local paths="deto install_path git_e17_path log_path build_path log_path"
 local output="debug debug_level dev verbose animate"
-local conf_items="$paths $output action config_file packagelist nice on_error"
+local conf_items="$pathsp src_path $output action config_file packagelist nice on_error"
 
 for item in $conf_items; do
     if [[ -z "${conf["$item"]}" ]]; then
@@ -1943,7 +1943,6 @@ printf '%b\n' \
    "" \
    "You can rebuild failed packages with ${bold}./git_e17 build only names of failed. ${norm}" \
    "To update you installation use ${bold}./git_e17 update${norm}" \
-   "" \
    "You ${red}need${norm} to add the following lines to your ${green}~/.profile${norm} or shells profile file:" \
    "$green" \
    "    # Make e17 bins like enlightenment_start available from any location" \
@@ -1957,9 +1956,8 @@ printf '%b\n' \
    "    # are compiled with RPATH anyway - Read on LD_LIBRARY_PATH!!!" \
    "    #export LD_LIBRARY_PATH=\"${conf[install_path]}/bin:\$LD_LIBRARY_PATH\"" \
    "$norm" \
-   "In order to use enlightenment with ${bold}gdm, kdm, xdm ... ${norm} you ${red}need${norm} to:" \
-   "${green}sudo ln -s ${conf[install_path]}/share/xessions/enlightenment.desktop /usr/share/xsessions/$norm" \
+   "In order to use enlightenment with ${bold}gdm, kdm, xdm ... ${norm} as root you ${red}need${norm} to:" \
+   "${green}ln -s ${conf[install_path]}/share/xessions/enlightenment.desktop /usr/share/xsessions/$norm" \
    "If it does not work ask for an ${red}equivalent${norm} of ${red}/usr/share/xessions${norm}" \
    "at ${green}your distributions$norm website or (freenode) IRC channel" \
-   ""
 

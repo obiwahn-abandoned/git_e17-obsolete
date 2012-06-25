@@ -1037,8 +1037,6 @@ for pkg in $packages; do
             msg_ani "$ok"
             if [[ $pkg == e ]] && ! ${conf[dev]}; then
                 echo -e "E17 is installed :) The rest is optional!!\nDo not bug me or people in #e if something fails!"
-            else
-                echo
             fi
             # REMOVE PKG FROM FAILED
             pkg_success "$pkg"

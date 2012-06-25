@@ -1051,7 +1051,7 @@ for pkg in $packages; do
     fi
 done
 
-[[ $packages_failed ]] && echo -e "\nThe following packages failed to build:\n $packages_failed"
+[[ $packages_failed ]] && echo -e "\n${bold}The following packages failed to build:\n${red}$packages_failed${norm}"
 } #}}}
 
 ### find the source code of a package
@@ -1918,30 +1918,48 @@ fi
 main "$@"
 
 ${conf[noob_info]} || { echo; exit 0; }
+
+#test if e was about to be installed
+install_e=false
+for pkg in $packages; do
+    if [[ $pkg == e ]]; then
+        install_e=true
+    fi
+done
+
+$install_e || { echo; exit 0; }
 section " info "
 
+for pkg in $packages_failed; do
+    if [[ $pkg == e ]]; then
+        echo "Enlightenment failed to install or update :("
+        echo "Please check your logs at: ${conf[log_path]}"
+        exit 1
+    fi
+done
+
 printf '%b\n' \
-   "Your installation is successful if ${bold}e${norm} is not among the list of failed packages." \
+   "Your installation of Enlightenment is successful! " \
    "" \
    "You can rebuild failed packages with ${bold}./git_e17 build only names of failed. ${norm}" \
    "To update you installation use ${bold}./git_e17 update${norm}" \
    "" \
    "You ${red}need${norm} to add the following lines to your ${green}~/.profile${norm} or shells profile file:" \
    "$green" \
-   "    # Make e17 bins like enlightenment_start,eet,emprint avilable from any location" \
-   "    export PATH=${conf[install_path]}/bin:\$PATH" \
+   "    # Make e17 bins like enlightenment_start available from any location" \
+   "    export PATH=\"${conf[install_path]}/bin:\$PATH\"" \
    "" \
    "    # Add new Python libs to PYTHONPATH" \
-   "    export PYTHONPATH=$(python -c "import distutils.sysconfig; print distutils.sysconfig.get_python_lib(prefix='$install_path')" 2>/dev/null):\$PYTHONPATH" \
+   "    export PYTHONPATH=\"${conf[install_path]}/$(python -c "import distutils.sysconfig; print distutils.sysconfig.get_python_lib(prefix='$install_path')" 2>/dev/null):\$PYTHONPATH\"" \
    "" \
    "    # Add e17 libs to your users linker search path " \
-   "    # Doing it like this is considered harmful by some people and most programs are" \
-   "    # compiled with RPATH anyway - Read on LD_LIBRARY_PATH!!!" \
-   "    #export LD_LIBRARY_PATH=${conf[install_path]}/bin:\$LD_LIBRARY_PATH" \
+   "    # Doing it like this is considered harmful by some people and most programs" \
+   "    # are compiled with RPATH anyway - Read on LD_LIBRARY_PATH!!!" \
+   "    #export LD_LIBRARY_PATH=\"${conf[install_path]}/bin:\$LD_LIBRARY_PATH\"" \
    "$norm" \
-   "" \
    "In order to use enlightenment with ${bold}gdm, kdm, xdm ... ${norm} you ${red}need${norm} to:" \
    "${green}sudo ln -s ${conf[install_path]}/share/xessions/enlightenment.desktop /usr/share/xsessions/$norm" \
    "If it does not work ask for an ${red}equivalent${norm} of ${red}/usr/share/xessions${norm}" \
-   "at ${green}your distributions$norm website or #yourdist@frenode.net" \
+   "at ${green}your distributions$norm website or (freenode) IRC channel" \
    ""
+

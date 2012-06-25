@@ -499,6 +499,7 @@ assign_defaults(){
 debug 1 "$FUNCNAME() $*"
 section " assigning default vaules "
 
+conf[install_path]="${conf[install_path]:-"/opt/e17"}"
 conf[log_path]="${conf[log_path]:-"${conf[git_e17_path]}/log"}"
 conf[packagelist]="${conf[packagelist]:-"full"}"
 conf[on_error]="${conf[on_error]:-"ask"}"
@@ -507,7 +508,7 @@ conf[pull]=${conf[pull]:-false}
 conf[fetch]=${conf[fetch]:-false}
 conf[remote]="${conf[remote]:-"origin"}"
 conf[noob_info]="${conf[noob_info]:-"true"}"
-conf[dev]="${conf[dev]:-"true"}"
+conf[dev]="${conf[dev]:-"false"}"
 
 
 if [[ ! $packages ]]; then
@@ -1870,7 +1871,7 @@ printf '%b\n' \
    "# item=val - NO SPACES - NO QUOTES" \
    "" \
    "# this is the target dir of your installation" \
-   "install_path=/usr/local/e17" \
+   "install_path=/opt/e17" \
    "# git repoistory directory" \
    "src_path=${conf[git_e17_path]}/e.org.git" \
    "# dir in which the" \

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+install_path="$1"
+
+sudo chown root:root "$install_path/lib/enlightenment/utils/enlightenment_sys"
+sudo chmod u+s       "$install_path/lib/enlightenment/utils/enlightenment_sys"
+sudo chown root:root "$install_path/lib/enlightenment/utils/enlightenment_backlight"
+sudo chmod u+s       "$install_path/lib/enlightenment/utils/enlightenment_backlight"
+
+sudo ln -s "$install_path/share/xsessions/enlightenment.desktop" /usr/share/xsessions

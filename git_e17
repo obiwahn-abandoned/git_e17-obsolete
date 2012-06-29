@@ -118,7 +118,7 @@ add_failed
 ignore_pkgs
 ##
 set_env
-build
+build "/trunk"
 noob_info
 }
 #### end main function }}}
@@ -134,7 +134,7 @@ debug 1 "$FUNCNAME() $*"
 printf '%b\n' \
    "git_e17 - simple script for building enlightenment 17" \
    "" \
-   "./git_e17 [options] ${green}action${norm} [only <packagelist>]" \
+   "./git_e17 [options] ${green}action${norm} [(only|plugin) <packagelist>]" \
    "" \
    "actions:" \
    "    ${green}build${norm}" \
@@ -148,6 +148,9 @@ printf '%b\n' \
    "" \
    "only:" \
    "     use only named packages" \
+   "" \
+   "plugin:" \
+   "     call plugin hook on named plugins" \
    "" \
    "options:" \
    "    -h | --help  / ${bold}--dev-help${boldoff}" \
@@ -372,7 +375,7 @@ elif [[ "$1" == only ]]; then
     echo "only: $packages"
 elif [[ "$1" == plugin ]]; then
     shift
-    declare -g packages="$@"
+    packages="${@:-all}"
     echo "plugins: $packages"
     plugin
     exit
@@ -993,6 +996,9 @@ echo -e "The following packages will be build:\n"
 echo_long "$packages"
 echo
 
+local trunk="$1"
+local src_path="$2"
+
 for pkg in $packages; do
     #
     # please use only
@@ -1014,9 +1020,15 @@ for pkg in $packages; do
     conf[current_package_path]=""
 
     #find src
-    find_local_path "$pkg" "/trunk"
-    local cpath="${conf[current_package_path]}"
+    if ! [[ $src_path ]]; then
+        find_local_path "$pkg" "$trunk"
+        local cpath="${conf[src_path]}${trunk}/${conf[current_package_path]}"
+    else
+        local cpath="$src_path/$pkg"
+    fi
+
     local bpath="${conf[build_path]}"
+
     if [[ -z "$cpath" ]]; then
         nerr "source path of of package $pkg not found"
         msg_ani "SKIP"
@@ -1025,13 +1037,13 @@ for pkg in $packages; do
         #for animation
         ${conf[animate]} && write_name "$pkg"
 
-        fix_pkg "$pkg" "$cpath" "/trunk" "$bpath"
+        fix_pkg "$pkg" "$cpath" "$trun" "$bpath"
 
       ###compile it!
         declare -g g_retry=true
         while $g_retry; do
             g_retry=false
-            compile "$pkg" "$cpath" "/trunk" "$bpath"
+            compile "$pkg" "$cpath" "$trunk" "$bpath"
 
             if ${conf[animate]} && $g_current_failed; then
             ## BEGIN ANIMATION MODE OUTPUT
@@ -1120,9 +1132,9 @@ debug 1 "$FUNCNAME() $*"
 #
 local pkg="$1"
 local src_path="$2"
+debug 1 "srcpath: $src_path"
 local src_off="$3"
 debug 1 "package: $pkg"
-local src_path="${conf[src_path]}${src_off}/$src_path"
 debug 1 "srcpath: $src_path"
 local build_path="${conf[build_path]}/$1"
 debug 1 "build_path: $build_path"
@@ -1841,6 +1853,64 @@ echo
 exit 0
 } #}}}
 
+plugin(){ #{{{
+debug 1 "$FUNCNAME() $*"
+#
+# plugins will be called form here
+#
+get_git_e17_path_from_global_cfg
+read_local_cfg
+read_global_cfg
+assign_defaults
+interpret_action
+check_cfg
+set_env
+
+section " installing plugins "
+
+# TODO add to config
+local plugin_path="${BASH_SOURCE%/*}"
+
+echo "slected plugins: $packages"
+if [[ $packages == "all"* ]]; then
+    cd "$plugin_path" || ferr "unable to cd into plugin path"
+    local plugins=""
+    for plugin in git_e17-plugin-*; do
+        plugins+=${plugin#git_e17-plugin-}
+    done
+else
+    local plugins="$packages"
+fi
+
+#backup configuration
+local -A conf_backup
+for key in ${!conf[@]}; do
+    conf_backup[$key]=${conf[$key]}
+done
+
+for plugin in $plugins; do
+    section " installing $plugin plugin "
+
+    #source plugin
+    local plugin_path="$plugin_path/git_e17-plugin-$plugin"
+    echo "sourcing: $plugin_path"
+    . "$plugin_path" || ferr "failed to source: $plugin_path"
+
+    #run plugin
+    plugin_build $plugin
+
+    #restore configuration
+    for key in ${!conf_backup[@]}; do
+        conf[$key]=${conf_backup[$key]}
+    done
+done
+
+## exit when finished
+## do not delete the exit
+exit
+} #}}}
+
+
 
 default_global_cfg(){ #{{{
 #
@@ -1917,39 +1987,7 @@ printf '%b\n' \
    "evas_conf_args=--enable-gl-x11"
 } #}}}
 
-plugin(){
-debug 1 "$FUNCNAME() $*"
-#
-# plugins will be called form here
-#
-get_git_e17_path_from_global_cfg
-read_local_cfg
-read_global_cfg
-assign_defaults
-interpret_action
-check_cfg
-set_env
-
-section " installing plugins "
-echo "slected plugins: $packages"
-
-# save conf
-for plugin in $packages; do
-    echo "installing $plugin"
-    #find plugin || continue
-    #restore conf
-    #source plugin
-    #$update && plugin_update
-    #plugin_main
-done
-# restore conf
-
-## exit when finished
-## do not delete the exit
-exit
-}
-
-noob_info(){
+noob_info(){ #{{{
 ${conf[noob_info]} || return
 #test if e was installed
 install_e=false
@@ -1992,7 +2030,7 @@ printf '%b\n' \
    "${green}ln -s ${conf[install_path]}/share/xessions/enlightenment.desktop /usr/share/xsessions/$norm" \
    "If it does not work ask for an ${red}equivalent${norm} of ${red}/usr/share/xessions${norm}" \
    "at ${green}your distribution's$norm website or (freenode) IRC channel."
-}
+} #}}}
 
 ### program starts here
 # make sure main program ist not run as root as it cause serious damage

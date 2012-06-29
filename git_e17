@@ -1962,5 +1962,12 @@ printf '%b\n' \
    "In order to use enlightenment with ${bold}gdm, kdm, xdm ... ${norm} as root you ${red}need${norm} to:" \
    "${green}ln -s ${conf[install_path]}/share/xessions/enlightenment.desktop /usr/share/xsessions/$norm" \
    "If it does not work ask for an ${red}equivalent${norm} of ${red}/usr/share/xessions${norm}" \
-   "at ${green}your distributions$norm website or (freenode) IRC channel" \
+   "at ${green}your distribution's$norm website or (freenode) IRC channel." \
 
+
+plugin(){
+section " Plugins "
+echo "no plugin found"
+}
+
+plugin

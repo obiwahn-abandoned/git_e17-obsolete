@@ -119,6 +119,7 @@ ignore_pkgs
 ##
 set_env
 build
+noob_info
 }
 #### end main function }}}
 
@@ -369,6 +370,12 @@ elif [[ "$1" == only ]]; then
     shift
     packages="$@"
     echo "only: $packages"
+elif [[ "$1" == plugin ]]; then
+    shift
+    declare -g packages="$@"
+    echo "plugins: $packages"
+    plugin
+    exit
 else
     cmd_error
 fi
@@ -1910,17 +1917,41 @@ printf '%b\n' \
    "evas_conf_args=--enable-gl-x11"
 } #}}}
 
-### program starts here
-# make sure main program ist not run as root as it cause serious damage
-# i like to be sloppy - if you override this don't blame me:P
-if [[ $(id -u) -eq 0 ]]; then
-    echo "${red}You should not run scripts as root!${norm}"
-fi
-main "$@"
+plugin(){
+debug 1 "$FUNCNAME() $*"
+#
+# plugins will be called form here
+#
+get_git_e17_path_from_global_cfg
+read_local_cfg
+read_global_cfg
+assign_defaults
+interpret_action
+check_cfg
+set_env
 
-${conf[noob_info]} || { echo; exit 0; }
+section " installing plugins "
+echo "slected plugins: $packages"
 
-#test if e was about to be installed
+# save conf
+for plugin in $packages; do
+    echo "installing $plugin"
+    #find plugin || continue
+    #restore conf
+    #source plugin
+    #$update && plugin_update
+    #plugin_main
+done
+# restore conf
+
+## exit when finished
+## do not delete the exit
+exit
+}
+
+noob_info(){
+${conf[noob_info]} || return
+#test if e was installed
 install_e=false
 for pkg in $packages; do
     if [[ $pkg == e ]]; then
@@ -1960,12 +1991,13 @@ printf '%b\n' \
    "In order to use enlightenment with ${bold}gdm, kdm, xdm ... ${norm} as root you ${red}need${norm} to:" \
    "${green}ln -s ${conf[install_path]}/share/xessions/enlightenment.desktop /usr/share/xsessions/$norm" \
    "If it does not work ask for an ${red}equivalent${norm} of ${red}/usr/share/xessions${norm}" \
-   "at ${green}your distribution's$norm website or (freenode) IRC channel." \
-
-
-plugin(){
-section " Plugins "
-echo "no plugin found"
+   "at ${green}your distribution's$norm website or (freenode) IRC channel."
 }
 
-plugin
+### program starts here
+# make sure main program ist not run as root as it cause serious damage
+# i like to be sloppy - if you override this don't blame me:P
+if [[ $(id -u) -eq 0 ]]; then
+    ferr "${red}You should not run scripts as root!${norm}"
+fi
+main "$@"

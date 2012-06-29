@@ -26,12 +26,15 @@ plugin_build(){
     #get src
     plugin_get_src
 
-
     #build the plugin
     build "" "${conf[build_path]}"
     # build arg1 arg2
     # arg1: relative path to trunk from conf[src_path]
     # arg2: path to source
+
+    #build evas to enable svg loader
+    #packages="evas"
+    #build "/trunk" ""
 
     #clean up
     packages=""

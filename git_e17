@@ -1520,7 +1520,6 @@ msg_ani(){ ${conf[animate]} && echo "$@"; }         #animation mode message
 
 # print scetion banner
 section(){
-    set -e
     local fill_symbol="-"
     local title="$@"
 
@@ -1535,7 +1534,6 @@ section(){
     tput sgr0
     for (( n=1 ; n <= (fill+rest) ; n++ )); do echo -n "$fill_symbol" ; done
     echo
-    set +e
 }
 
 ## print configuration

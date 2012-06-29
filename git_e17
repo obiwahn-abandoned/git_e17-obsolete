@@ -118,7 +118,7 @@ add_failed
 ignore_pkgs
 ##
 set_env
-build "/trunk"
+build_main
 noob_info
 }
 #### end main function }}}
@@ -984,6 +984,16 @@ done
 $failed && exit 1
 } #}}}
 
+#calls build in main script
+build_main(){ #{{{
+section " entering build phase "
+echo -e "The following packages will be build:\n"
+echo_long "$packages"
+echo
+
+build "/trunk"
+} #}}}}
+
 ### build
 ### calls: find_local_path, compile
 build(){ #{{{
@@ -991,11 +1001,6 @@ debug 1 "$FUNCNAME() $*"
 #
 # This functions should find the
 #
-section " entering build phase "
-echo -e "The following packages will be build:\n"
-echo_long "$packages"
-echo
-
 local trunk="$1"
 local src_path="$2"
 

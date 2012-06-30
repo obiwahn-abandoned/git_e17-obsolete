@@ -19,21 +19,16 @@ Usage examples:
     Get the latest version.
     This uses --fetch-reset-hard so it will wipe you changes!!!!
 
-./git_e17 -s -a build
-    Build in animation mode and skip non fatal errors.
+./git_e17 build
+    Build e17 without updating sources
 
-./git_e17 devupdate
-    Update only files that changed but are not in your index.
-    Show the 30 last lines of and error and asks what to.
+./git_e17 build plugin enesim
+    install enesim libs in order to get esvg support
 
-./git -v build only eina evas
-    Build only eina and evas and show full command output.
-    Also ask what to do when an error is encountered
-
-./git_e17 --pull --remote raster --branch terminology devupdate only terminology
-./git -conf raster_term devupdate
+Developer examples:
+./git_e17 --dev --pull --remote raster --branch terminology update only terminology
+./git --conf raster_term update
     pull changes form remote raster and build only the package terminology
-
 
 You should write extra configuration files there you can specify:
  + per package configure arguments

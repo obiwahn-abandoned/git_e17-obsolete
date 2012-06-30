@@ -29,16 +29,14 @@ plugin_build(){
     section " entering $1 build phase "
     #build the plugin
     echo -e "now building: enesim, ender, etch and egueb"
-    build "" "${conf[build_path]}"
-    # build arg1 arg2
-    # arg1: relative path to trunk from conf[src_path]
-    # arg2: path to source
+    build "${conf[build_path]}" "" "${conf[build_path]}"
+    # build repo_path trunk build_path
 
     #build evas
     #to do this the conf should not be changed!
     echo -e "building evas to enable use of esvg:"
     packages="evas"
-    build "/trunk" ""
+    build "${conf[src_path]}" "/trunk" "${conf[build_path]}"
 
     #clean up
     packages=""

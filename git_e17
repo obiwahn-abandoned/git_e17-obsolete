@@ -855,7 +855,7 @@ debug 1 sleep "new_dirs: $new_dirs_uniq"
 write_name " - building path map"
 local -A path_map
 for pkg in $packages; do
-    find_local_path "$pkg" "/trunk"
+    find_local_path "$pkg" "${conf[src_path]}" "/trunk"
     local path="${conf[current_package_path]}"
     path=${path##"$src_path"}
     path_map["$pkg"]="trunk/$path/"
@@ -981,7 +981,7 @@ for dir in "$install_path/share/aclocal" "$PYTHONPATH" "$PYTHONINCLUDE"; do
     fi
 done
 ## TODO ## OUTPUT
-$failed && exit 1
+$failed && ferr "can not access all required directories"
 } #}}}
 
 #calls build in main script
@@ -991,7 +991,7 @@ echo -e "The following packages will be build:\n"
 echo_long "$packages"
 echo
 
-build "/trunk"
+build "${conf[src_path]}" "/trunk" "${conf[build_path]}"
 } #}}}}
 
 ### build
@@ -1001,8 +1001,9 @@ debug 1 "$FUNCNAME() $*"
 #
 # This functions should find the
 #
-local trunk="$1"
-local src_path="$2"
+local repo_path="$1"
+local trunk="$2"
+local build_path="$3"
 
 for pkg in $packages; do
     #
@@ -1025,14 +1026,9 @@ for pkg in $packages; do
     conf[current_package_path]=""
 
     #find src
-    if ! [[ $src_path ]]; then
-        find_local_path "$pkg" "$trunk"
-        local cpath="${conf[src_path]}${trunk}/${conf[current_package_path]}"
-    else
-        local cpath="$src_path/$pkg"
-    fi
-
-    local bpath="${conf[build_path]}"
+    find_local_path "$pkg" "$repo_path" "$trunk"
+    local cpath="${repo_path}${trunk}/${conf[current_package_path]}"
+    local bpath="${conf[build_path]}/$pkg"
 
     if [[ -z "$cpath" ]]; then
         nerr "source path of of package $pkg not found"
@@ -1042,13 +1038,13 @@ for pkg in $packages; do
         #for animation
         ${conf[animate]} && write_name "$pkg"
 
-        fix_pkg "$pkg" "$cpath" "$trun" "$bpath"
+        fix_pkg "$pkg" "$cpath" "$bpath"
 
       ###compile it!
         declare -g g_retry=true
         while $g_retry; do
             g_retry=false
-            compile "$pkg" "$cpath" "$trunk" "$bpath"
+            compile "$pkg" "$cpath" "$bpath"
 
             if ${conf[animate]} && $g_current_failed; then
             ## BEGIN ANIMATION MODE OUTPUT
@@ -1089,14 +1085,17 @@ debug 1 "$FUNCNAME() $*"
 #
 # in:
 #   $1 - package name
-#   $2 - trunk
+#   $2 - path to repo
+#   $3 - trunk
 # out:
 #   sets: conf[current_package_path]
 #
 local name="$1"
-local trunk="$2"
+local repo_path="$2"
+local trunk="$3"
+
 local path=""
-local src_path="${conf[src_path]}${trunk}"
+local src_path="${repo_path}${trunk}"
 
 conf[current_package_path]="$path"
 
@@ -1136,12 +1135,10 @@ debug 1 "$FUNCNAME() $*"
 #
 #
 local pkg="$1"
+debug 1 "package: $pkg"
 local src_path="$2"
 debug 1 "srcpath: $src_path"
-local src_off="$3"
-debug 1 "package: $pkg"
-debug 1 "srcpath: $src_path"
-local build_path="${conf[build_path]}/$1"
+local build_path="$3"
 debug 1 "build_path: $build_path"
 
 g_current_failed=false
@@ -1367,11 +1364,7 @@ debug 1 "$FUNCNAME() $*"
 
 local pkg="$1"
 local cpath="$2"
-local coff="$3"
-local bpath="$4"
-
-cpath="${conf[src_path]}${coff}/$cpath"
-bpath="$bpath/$pkg"
+local bpath="$3"
 
 case $pkg in
     drawer|itask|winlist-ng|enlil|enki)
@@ -2040,7 +2033,7 @@ printf '%b\n' \
 ### program starts here
 # make sure main program ist not run as root as it cause serious damage
 # i like to be sloppy - if you override this don't blame me:P
-if [[ $(id -u) -eq 0 ]]; then
+if (( $(id -u) == 0 )); then
     ferr "${red}You should not run scripts as root!${norm}"
 fi
 main "$@"

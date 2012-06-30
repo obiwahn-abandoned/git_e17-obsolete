@@ -1315,7 +1315,7 @@ if ! $g_current_failed; then
         return
 
     #if a more verbose mode is used
-    elif ${conf[verbose]} || ${conf[dev]} ; then
+    elif ${conf[verbose]} ; then
         echo -e "  - RUNNING: ${bold}$@${boldoff} ... "
         echo -e "         IN: $(pwd)\n"
         sleep 2

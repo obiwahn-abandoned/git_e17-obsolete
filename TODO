@@ -1,6 +1,7 @@
 TODO
 General
     management of failed packages
+    rename conf[src_path] to conf[repo_path]
 
 Actions
     list

@@ -35,6 +35,7 @@ plugin_build(){
     #build evas
     #to do this the conf should not be changed!
     echo -e "building evas to enable use of esvg:"
+    rm -fr "${conf[install_path]}/lib/evas"
     packages="evas"
     build "${conf[src_path]}" "/trunk" "${conf[build_path]}"
 

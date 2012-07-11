@@ -1146,7 +1146,7 @@ debug 1 "build_path: $build_path"
 g_current_failed=false
 
 local install_path="${conf[install_path]}"
-local pkg_conf_args="${conf["${pgk}_conf_args"]}"
+local pkg_conf_args="${conf["${pkg}_conf_args"]}"
 local build_type=""
 local log_file="${conf[log_path]}/$pkg.log"
 [[ -e "$log_file" ]] && rm "$log_file"
@@ -1205,7 +1205,7 @@ g_current_failed=false
           run_cmd "$pkg" "$src_path" "$build_path" "perlmake" "perl $src_path/Makefile.PL prefix=$install_path"
           ;;&
       autogen|bootstrap) #configure
-          $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "configure" "$src_path/configure --prefix=$install_path $pgk_conf_args"
+          $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "configure" "$src_path/configure --prefix=$install_path $pkg_conf_args"
           ;;&
       autogen|bootstrap|perl) # make && make install
         $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "make" "make -j ${conf[threads]}"

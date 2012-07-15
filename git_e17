@@ -1172,17 +1172,17 @@ debug 1 "Type of build system $build_type"
 declare -g g_clean_phase=true
 case "$build_type" in
     autogen|bootstrap)
+        ${conf[uninstall]} && run_cmd "$pkg" "$src_path" "$build_path" "make uninstall" "make uninstall"
+        g_current_failed=false
         ${conf[clean]}     && run_cmd "$pkg" "$src_path" "$build_path" "make clean"     "make clean"
         g_current_failed=false
         ${conf[distclean]} && run_cmd "$pkg" "$src_path" "$build_path" "make distclean" "make distclean"
         g_current_failed=false
-        ${conf[uninstall]} && run_cmd "$pkg" "$src_path" "$build_path" "make uninstall" "make uninstall"
-        g_current_failed=false
         ;;&
     make|perl)
-        ${conf[clean]}     && run_cmd "$pkg" "$src_path" "" "make clean"     "make clean"
-        g_current_failed=false
         ${conf[uninstall]} && run_cmd "$pkg" "$src_path" "" "make uninstall" "make uninstall"
+        g_current_failed=false
+        ${conf[clean]}     && run_cmd "$pkg" "$src_path" "" "make clean"     "make clean"
         g_current_failed=false
         ;;
     *)
@@ -1373,6 +1373,10 @@ case $pkg in
         msg -n "  - fixing ... "
         rsync -av "$cpath/" "$bpath/" &>/dev/null
         msg "PRAY!"
+        ;;
+    evas)
+        #delete old svg loader instead of unistalling evas
+        rm -r "${conf[install_path]}/lib/evas/modules/loaders/svg"
         ;;
 esac
 } #}}}

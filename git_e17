@@ -18,7 +18,7 @@
 ### global variable definitions {{{
 
 basic_lib="eina eet evas ecore efreet eio eeze e_dbus embryo edje azy ethumb elementary"
-basic_bin="e exchange"
+basic_bin="e terminology exchange"
 themes="darkness detourious efenniht"
 
 modules_lib="libeweather"
@@ -26,7 +26,7 @@ modules_bin="emprint exalt"
 modules_extra="alarm calendar comp-scale cpu deskshow diskio drawer eektool elfe empris engage eooorg everything-aspell everything-mpris everything-pidgin everything-places everything-shotgun everything-skeleton everything-tracker everything-wallpaper everything-websearch eweather exalt-client exebuf execwatch flame forecasts iiirk itask mail mem moon mpdule net news penguins photo places quickaccess rain screenshot skel slideshow snow taskbar tclock uptime weather winlist-ng winselector wlan"
 
 extra_lib="imlib2 emotion enlil libast python-evas python-ecore python-e_dbus python-edje python-emotion python-elementary shellementary"
-extra_bin="e_cho e-type e_phys eblock econcentration editje eenvader.fractal elsa emote empower enjoy enki ephoto eskiss Eterm expedite exquisite eyelight rage terminology"
+extra_bin="e_cho e-type e_phys eblock econcentration editje eenvader.fractal elsa emote empower enjoy enki ephoto eskiss Eterm expedite exquisite eyelight rage"
 
 declare -A packages_msg
 packages_msg[__basic_lib]="\nenlightenment foundation libraries:"
@@ -1376,7 +1376,7 @@ case $pkg in
         ;;
     evas)
         #delete old svg loader instead of unistalling evas
-        rm -r "${conf[install_path]}/lib/evas/modules/loaders/svg"
+        rm -fr "${conf[install_path]}/lib/evas/modules/loaders/svg" 2>/dev/null
         ;;
 esac
 } #}}}

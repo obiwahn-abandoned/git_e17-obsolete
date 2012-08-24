@@ -1416,7 +1416,7 @@ echo -e "${bold}proceeding with general checks\n${boldoff}"
 local failed=false
 
 deps_bin="git make automake byacc g++ gcc libtool pkg-config"
-deps_dev="dbus-1 fontconfig freetype GL jpeg lua5.1 png rsvg-2 udev xml2 X11 Xext Xrandr xcb"
+deps_dev="dbus-1 fontconfig freetype GL jpeg lua5.1 png udev xml2 X11 Xext Xrandr xcb"
 
 echo -e "checking commands:"
 for bin in $deps_bin; do

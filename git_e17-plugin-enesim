@@ -21,7 +21,7 @@ plugin_build(){
     section " $1 plugin "
 
     #packages to be installed
-    packages="enesim ender etch egueb"
+    packages="enesim ender etch egueb efl_svg"
 
     #get src
     plugin_get_src

@@ -32,7 +32,6 @@ modules_extra+="exebuf execwatch flame forecasts iiirk itask mail mem moon mpdul
 modules_extra+="photo places quickaccess rain screenshot skel slideshow snow taskbar tclock uptime"
 modules_extra+="weather winlist-ng winselector wlan"
 
-modules_extra
 extra_lib="imlib2 enlil ephysics libast python-evas python-ecore python-e_dbusi"
 extra_lib+="python-edje python-emotion python-elementary shellementary"
 extra_bin="clouseau e_cho e-type e_phys eblock econcentration editje eenvader.fractal emote empower"

@@ -966,9 +966,9 @@ export LD_RUN_PATH="$install_path/lib"
 echo "LD_RUN_PATH=$LD_RUN_PATH"
 export CFLAGS="$CFLAGS ${conf[cflags]}"
 echo "CFLAGS=$CFLAGS"
-export PYTHONPATH="$(python -c "import distutils.sysconfig; print distutils.sysconfig.get_python_lib(prefix='$install_path')" 2>/dev/null)"
+export PYTHONPATH="$($pythoncmd -c "import distutils.sysconfig; print distutils.sysconfig.get_python_lib(prefix='$install_path')" 2>/dev/null)"
 echo "PYTHONPATH=$PYTHONPATH"
-export PYTHONINCLUDE="$(python -c "import distutils.sysconfig; print distutils.sysconfig.get_python_inc(prefix='$install_path')" 2>/dev/null)"
+export PYTHONINCLUDE="$($pythoncmd -c "import distutils.sysconfig; print distutils.sysconfig.get_python_inc(prefix='$install_path')" 2>/dev/null)"
 echo "PYTHONINCLUDE=$PYTHONINCLUDE"
 export NOCONFIGURE="true"
 echo "NOCONFIGURE=$NOCONFIGURE"
@@ -1226,7 +1226,7 @@ g_current_failed=false
           ;;
       python)
         run_cmd "$pkg" "$src_path" "" "setup.py-build" "python setup.py build build_ext --include-dirs=$PYTHONINCLUDE $pkg_conf_args"
-        $g_current_failed || run_cmd "$pkg" "$src_path" "" "setip-py-install" "python setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
+        $g_current_failed || run_cmd "$pkg" "$src_path" "" "setip-py-install" "$pythoncmd setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
           ;;
       *)
           msg "  - no build system ... $fail"
@@ -1401,9 +1401,17 @@ section " build dependences check "
 
 #check for programs
 #find  distribution
+pythoncmd="python" #allow distros to set their own python command
+
+deps_bin="git make automake byacc g++ gcc libtool pkg-config"
+deps_dev="dbus-1 fontconfig freetype GL jpeg lua5.1 png udev xml2 X11 Xext Xrandr xcb"
+
 if [ -e "/etc/debian_version" ]; then
     echo "found distribution debian"
     debian
+elif [ -e "/etc/arch-release" ] ; then
+	echo "found distribution arch"
+	archlinux
 elif [ -e "/etc/gentoo-release" ]; then
     echo "found distribution gentoo"
     unsupported_dist_note
@@ -1423,9 +1431,6 @@ fi
 #
 echo -e "${bold}proceeding with general checks\n${boldoff}"
 local failed=false
-
-deps_bin="git make automake byacc g++ gcc libtool pkg-config"
-deps_dev="dbus-1 fontconfig freetype GL jpeg lua5.1 png udev xml2 X11 Xext Xrandr xcb"
 
 echo -e "checking commands:"
 for bin in $deps_bin; do
@@ -1504,6 +1509,40 @@ else
     echo -e "${ok} \n"
 fi
 } #}}}
+
+archlinux(){
+local deps_arch="git autoconf automake binutils bison fakeroot flex gcc libtool m4 make patch pkg-config "
+deps_arch+="dbus fontconfig freetype2 libjpeg-turbo lua libpng libxml2 libx11 libxext libxrandr libxcb"
+
+local missing=""
+
+echo -e "\n ### Checking Deps... ###"
+
+for dep in $deps_arch; do
+	if ! pacman -Qs $dep | grep -q -E "^local/$dep " &>/dev/null ; then
+		missing+="$dep "
+	fi
+	wait
+done
+
+if [[ $missing ]]; then
+	echo -e "${fail}\n\nThe following packages are missing: \n${missing}\n"
+	if (( $(id -u) == 0 )); then
+		if [[ $(ask_yn "do you want to install the missing packages?") == "yes" ]]; then
+			pacman -S $missing || exit 1
+		fi
+	else
+		sleep 10
+	fi
+else
+	echo -e "${ok} \n"
+fi
+
+deps_bin="git make automake yacc g++ gcc libtool pkg-config"
+deps_dev="dbus-1 fontconfig freetype GL jpeg lua png udev xml2 X11 Xext Xrandr xcb"
+pythoncmd="python2"
+}
+
 
 unsupported_dist_note(){
 echo "there are currently no checks for you distribution / OS available"
@@ -2031,8 +2070,8 @@ printf '%b\n' \
    "    # Make e17 bins like enlightenment_start available from any location" \
    "    export PATH=\"${conf[install_path]}/bin:\$PATH\"" \
    "" \
-   "    # Add new Python libs to PYTHONPATH" \
-   "    export PYTHONPATH=\"${conf[install_path]}/$(python -c "import distutils.sysconfig; print distutils.sysconfig.get_python_lib(prefix='$install_path')" 2>/dev/null):\$PYTHONPATH\"" \
+   "    # Add new python2 libs to PYTHONPATH" \
+   "    export PYTHONPATH=\"${conf[install_path]}/$($pythoncmd -c "import distutils.sysconfig; print distutils.sysconfig.get_python_lib(prefix='$install_path')" 2>/dev/null):\$PYTHONPATH\"" \
    "" \
    "    # Add e17 libs to your users linker search path " \
    "    # Doing it like this is considered harmful by some people and most programs" \

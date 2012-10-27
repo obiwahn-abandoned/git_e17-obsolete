@@ -18,7 +18,7 @@
 ### global variable definitions {{{
 
 ## TODO ## Convert package list strings to arrays!!!
-basic_lib="eina eobj eet evas ecore efreet eio eeze e_dbus embryo edje azy ethumb elementary emotion"
+basic_lib="efl evas ecore efreet eio eeze e_dbus embryo edje azy ethumb elementary emotion"
 basic_bin="e evas_generic_loaders terminology exchange"
 themes="23oz dark darkness detourious efenniht"
 

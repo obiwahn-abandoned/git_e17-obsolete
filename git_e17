@@ -1396,33 +1396,46 @@ esac
 distcheck(){ #{{{
 #echo -e "${bold}checking distribution ...${boldoff}"
 debug 1 "$FUNCNAME() $*"
-! ${conf[dev]} || return
-section " build dependences check "
+section " distribution setting and checks "
 
-#check for programs
-#find  distribution
-pythoncmd="python" #allow distros to set their own python command
+#allow distros to set their own python command
+# TODO - this should probably go into conf[]
+# or up to the other global vars. on the other hand
+# people are more likely to find it here
+pythoncmd="python"
 
+# Default binaries and libs to check.
+# Can be overriden by distribution (See Arch)
 deps_bin="git make automake byacc g++ gcc libtool pkg-config"
 deps_dev="dbus-1 fontconfig freetype GL jpeg lua5.1 png udev xml2 X11 Xext Xrandr xcb"
 
+#find  distribution
 if [ -e "/etc/debian_version" ]; then
     echo "found distribution debian"
-    debian
+    ! ${conf[dev]} || return
+    debian_check
 elif [ -e "/etc/arch-release" ] ; then
 	echo "found distribution arch"
-	archlinux
+    deps_bin="${deps_bin/byacc/yacc}"
+    deps_dev="${deps_bin/lua5.1/lua}"
+    pythoncmd="python2"
+    ! ${conf[dev]} || return
+	archlinux_check
 elif [ -e "/etc/gentoo-release" ]; then
     echo "found distribution gentoo"
+    ! ${conf[dev]} || return
     unsupported_dist_note
 elif [ -e "/etc/redhat-release" ]; then
-    echo "found distribution gentoo"
+    echo "found distribution redhat"
+    ! ${conf[dev]} || return
     unsupported_dist_note
 elif [ -e "/etc/SuSE-release" ]; then
-    echo "found distribution gentoo"
+    echo "found distribution Suse"
+    ! ${conf[dev]} || return
     unsupported_dist_note
 else
     echo "did not find your distribution"
+    ! ${conf[dev]} || return
     unsupported_dist_note
 fi
 
@@ -1460,7 +1473,7 @@ $failed && ferr "Please install the missing build dependencies"
 } #}}}
 
 ##  debian specific stuff
-debian(){ #{{{
+debian_check(){ #{{{
 debug 1 "$FUNCNAME() $*"
 
 #must be tested for stable
@@ -1510,7 +1523,7 @@ else
 fi
 } #}}}
 
-archlinux(){
+archlinux_check(){
 local deps_arch="git autoconf automake binutils bison fakeroot flex gcc libtool m4 make patch pkg-config "
 deps_arch+="dbus fontconfig freetype2 libjpeg-turbo lua libpng libxml2 libx11 libxext libxrandr libxcb"
 
@@ -1537,10 +1550,6 @@ if [[ $missing ]]; then
 else
 	echo -e "${ok} \n"
 fi
-
-deps_bin="git make automake yacc g++ gcc libtool pkg-config"
-deps_dev="dbus-1 fontconfig freetype GL jpeg lua png udev xml2 X11 Xext Xrandr xcb"
-pythoncmd="python2"
 }
 
 

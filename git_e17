@@ -1417,7 +1417,7 @@ if [ -e "/etc/debian_version" ]; then
 elif [ -e "/etc/arch-release" ] ; then
 	echo "found distribution arch"
     deps_bin="${deps_bin/byacc/yacc}"
-    deps_dev="${deps_bin/lua5.1/lua}"
+    deps_dev="${deps_dev/lua5.1/lua}"
     pythoncmd="python2"
     ! ${conf[dev]} || return
 	archlinux_check

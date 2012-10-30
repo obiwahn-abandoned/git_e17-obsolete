@@ -1421,6 +1421,11 @@ elif [ -e "/etc/arch-release" ] ; then
     pythoncmd="python2"
     ! ${conf[dev]} || return
 	archlinux_check
+elif [ -e "/etc/fedora-release" ]; then
+    echo "found distribution fedora"
+    deps_dev="${deps_dev/lua5.1/lua}"
+    ! ${conf[dev]} || return
+    unsupported_dist_note
 elif [ -e "/etc/gentoo-release" ]; then
     echo "found distribution gentoo"
     ! ${conf[dev]} || return

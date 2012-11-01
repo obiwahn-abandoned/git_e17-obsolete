@@ -732,7 +732,7 @@ local src_path="${conf[src_path]}"
 local git="${conf[git_repo]}"
 local remote="${conf[remote]}"
 
-#delete log file - append at other locations !
+#delete log file
 rm -fr "${conf[git_e17_path]}/git.log"
 
 #
@@ -742,7 +742,17 @@ rm -fr "${conf[git_e17_path]}/git.log"
 if [[ ! -d ${conf[src_path]} ]]; then
     #create it
     echo "cloning ${conf[git_repo]}"
-    git clone -v --progress "${conf[git_repo]}" "$src_path" || ferr "unable to clone repository"
+    for i in {0..10}; do
+        echo "trying to clone git repository"
+            if git clone -v --progress "${conf[git_repo]}" "$src_path"; then
+                repo_cloned=true
+                echo "successfully cloned git repo"
+                break
+            else
+                echo "failed to clone repository"
+            fi
+    done
+    $repo_cloned || ferr "unable to clone repository"
 fi
 
 #change to repo
@@ -752,6 +762,8 @@ cd "$src_path" || ferr "failed to cd in $src_path"
 #get name of branch
 g_current_branch="$(git symbolic-ref HEAD)"
 g_current_branch="${g_current_branch##*/}"
+[[ -n "$g_current_branch" ]] || ferr "You are not on any branch - Fix your repo!!!"
+
 echo "Your current branch is $g_current_branch"
 
 #get hash of current HEAD
@@ -763,9 +775,9 @@ echo "You are at commit $g_old_commit"
 git_fetch_reset(){ #{{{
 debug 1 "$FUNCNAME() $*"
 ${conf[fetch]} || return
-section " git fetch  "
+section " git fetch && git reset --hard "
 #
-#
+# fetches latest
 #
 
 local remote="${conf[remote]}"
@@ -773,7 +785,7 @@ local branch="${conf[branch]:-"$g_current_branch"}"
 
 #select right branch
 echo "checking out $branch so that you local $branch matches the remote branch"
-echo "i think this is a good requirement to save the average person from harm:) "
+echo "i think this is a good default for people that are not messing with the code"
 if [[ -n "$branch" && "$branch" != "$g_current_branch" ]]; then
     if ! git checkout ${conf[branch]}; then
         ferr "unable to checkout selected branch - fix your repository"
@@ -781,7 +793,7 @@ if [[ -n "$branch" && "$branch" != "$g_current_branch" ]]; then
 fi
 
 echo "git fetch $remote"
-git fetch $remote &> >( tee -a "${conf[git_e17_path]}/git.log" ) || nerr "git fetch"
+git fetch $remote &> >( tee -a "${conf[git_e17_path]}/git.log" ) || nerr "git fetch failed"
 
 echo "git clean -f -d"
 git clean -f -d &> /dev/null

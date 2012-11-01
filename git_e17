@@ -829,61 +829,19 @@ section " calculating changes "
 
 g_current_commit="$(git log -1 --format="%H")"
 
-echo -n "acquiring change set via: "
-
-local new_files=""
-if ${conf[fetch]}; then
-    debug 1 "if fetch"
-    if [[ "$g_old_commit" != "$g_current_commit" ]];then
-        echo "git diff g_old_commit g_current_commit"
-        echo "old: $g_old_commit"
-        echo "new: $g_current_commit"
-        new_files="$(git diff --name-only $g_old_commit $g_current_commit)"
-        debug 2 "new files: $new_files"
-    else
-        echo "git diff g_old_commit g_current_commit"
-        echo -e "\nNo Changes!!\n"
-        exit 0
-    fi
-elif ${conf[pull]};then
-    debug 1 "if pull"
-    echo "git diff"
-    echo -e " - This collects only changes that are not already in the index or committed"
-    local new_files_tmp="$(git diff --name-only)"
-    new_files="$(git diff --name-only)"
-    #local new_files_tmp="$(git diff --name-only)"
-    #new_files="$(grep -v -E "/po/.*\.po$|/INSTALL$" <<< "$new_files_tmp")"
-    debug 2 "$new_files"
-else
-    echo "git diff"
-    echo -e " - This collects only changes that are not already in the index or committed"
-    new_files="$(git diff --name-only)"
-    #local new_files_tmp="$(git diff --name-only)"
-    #new_files="$(grep -v -E "/po/.*\.po$|/INSTALL$" <<< "$new_files_tmp")"
-    debug 2 "$new_files"
-fi
-
-echo
-write_name " - receiving paths"
-local new_dirs="$(
-    while read -r line; do
-        echo "${line%/*}/"
-    done <<< "$new_files"
-)"
-echo "$ok"
-
-local new_dirs_uniq="$( echo "$new_dirs" | sort | uniq 2>/dev/null)"
-debug 1 sleep "new_dirs: $new_dirs_uniq"
-
 ## Speed this up
 write_name " - building path map"
 local -A path_map
 for pkg in $packages; do
     find_local_path "$pkg" "${conf[src_path]}" "/trunk"
     local path="${conf[current_package_path]}"
-    path=${path##"$src_path"}
-    path_map["$pkg"]="trunk/$path/"
-    debug 3 "map $pkg: ${path_map[$pkg]}"
+    if [[ -n "$path" ]]; then
+        path=${path##"$src_path"}
+        path_map["$pkg"]="trunk/$path/"
+        debug 3 "map $pkg: ${path_map[$pkg]}"
+    else
+        debug 3 "unable to map $pkg to source location"
+    fi
 done
 
 #rotate does not work here
@@ -892,18 +850,58 @@ done
 echo -e "$ok \n"
 
 packages_new=""
-debug 3 "calulationg new from path map"
+debug 3 "calulationg packges to update from path map"
 for pkg in $packages; do
+    if [[ $pkg == __* ]]; then
+        packages_new+="$pkg "
+        continue
+    fi
     debug 3 "map $pkg: ${path_map[$pkg]}"
     if [[ -n "${path_map[$pkg]}" ]]; then
-        if echo $new_dirs_uniq | grep -q -E  "${path_map[$pkg]}.*" ; then
+        write_name "$pkg "
+        # calulate the new dir per package
+        #find the last successful install/build
+        local succ_build="$(grep "^$pkg" "${conf[build_path]}/git_e17_status")"
+
+        if [[ -z "$succ_build" ]]; then
+            #build it because we have no info
             packages_new+="$pkg "
+            echo "changed"
+            continue
+        fi
+
+        IFS=: read -r _ _ _ succ_commit _ <<< "$succ_build"
+        if [[ "$succ_commit" == "na" ]]; then
+            #build it because it was never build
+            packages_new+="$pkg "
+            echo "changed"
+            continue
+        fi
+
+        debug 3 "last successfully bulid commit: $succ_commit"
+        #get files that differ form last successfully build commit
+        new_files="$(git diff --name-only "$succ_commit" -- "${path_map[$pkg]}")"
+        debug 4 "new files for $pkg: $new_files"
+
+        local new_dirs="$(
+            while read -r line; do
+                echo "${line%/*}/"
+            done <<< "$new_files"
+        )"
+
+        local new_dirs_uniq="$( echo "$new_dirs" | sort | uniq 2>/dev/null)"
+
+        debug 4 sleep "new_dirs: $new_dirs_uniq"
+
+        #build it because there are changes in the path
+        if echo $new_dirs_uniq | grep -q -E  "${path_map[$pkg]}.*" ; then
+            echo "changed"
+            packages_new+="$pkg "
+        else
+            echo "unchanged"
         fi
     fi
 done
-
-debug 1 "$packages_new"
-debug 4 "$(exit)"
 
 packages="$packages_new"
 if [[ "$packages" ]]; then
@@ -1861,7 +1859,7 @@ msg="$@"
 
 if (( level <= ${conf[debug_level]} )); then
     while read -r debug_line <&13; do
-        echo "debug $level: $debug_line" 1>&2
+        printf '%q\n' "debug $level: $debug_line" 1>&2
     done 13<<< "$msg"
 fi
 [[ "$action" == "sleep" ]] && sleep 5

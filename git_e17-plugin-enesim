@@ -47,7 +47,7 @@ plugin_get_src(){
     for pkg in $packages; do
         local pkg_path="${conf[build_path]}/$pkg"
         if [[ -d "$pkg_path" ]]; then
-            if ${conf[fetch]} || ${conf[pull]}; then
+            if [[ "${conf[action]}" == "update" ]]; then
                 echo "running svn update"
                 cd $pkg_path && svn update
             fi

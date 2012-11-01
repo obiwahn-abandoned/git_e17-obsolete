@@ -519,6 +519,8 @@ debug 1 "$FUNCNAME() $*"
 section " assigning default vaules "
 
 conf[install_path]="${conf[install_path]:-"/opt/e17"}"
+#TODO - maybe the script should fail if the build path is not set
+conf[build_path]="${conf[build_path]:-"${conf[git_e17_path]}/build"}"
 conf[log_path]="${conf[log_path]:-"${conf[git_e17_path]}/log"}"
 conf[packagelist]="${conf[packagelist]:-"full"}"
 conf[on_error]="${conf[on_error]:-"ask"}"
@@ -641,10 +643,10 @@ section " checking configuration "
 #
 
 ## FIXME ##
-conf[deto]="$HOME/.e/e/themes" ## FIX-FOR-A-THEME
-local paths="deto install_path git_e17_path log_path build_path log_path"
+conf[theme_path]="$HOME/.e/e/themes" ## FIX-FOR-A-THEME
+local paths="theme_path install_path git_e17_path log_path build_path log_path"
 local output="debug debug_level dev verbose animate"
-local conf_items="$pathsp src_path $output action config_file packagelist nice on_error"
+local conf_items="$paths src_path $output action config_file packagelist nice on_error"
 
 for item in $conf_items; do
     if [[ -z "${conf["$item"]}" ]]; then
@@ -767,6 +769,7 @@ g_current_branch="${g_current_branch##*/}"
 echo "Your current branch is $g_current_branch"
 
 #get hash of current HEAD
+g_current_commit="$(git log -1 --format="%H")"
 g_old_commit="$(git log -1 --format="%H")"
 echo "You are at commit $g_old_commit"
 } #}}}
@@ -929,6 +932,17 @@ debug 1 "$FUNCNAME() $*"
 # add to failed
 #
 msg -e " - Adding $1 to failed list of failed packages\n"
+
+local status_file="${conf[build_path]}/git_e17_status"
+status_content="$(cat "$status_file")"
+while IFS=: read -r name stat try succ fail; do
+    if [[ "$pkg" == "$name" ]]; then
+        echo "$name:failed:$try:$succ:$g_current_commit"
+    else
+        echo "$name:$stat:$try:$succ:$fail"
+    fi
+done <<< "$status_content" > "$status_file"
+
 packages_failed+="$pkg "
 } #}}}
 
@@ -938,7 +952,16 @@ debug 1 "$FUNCNAME() $*"
 #
 # remove from failed
 #
-:
+local status_file="${conf[build_path]}/git_e17_status"
+
+status_content="$(cat "$status_file")"
+while IFS=: read -r name stat try succ fail; do
+    if [[ "$pkg" == "$name" ]]; then
+        echo "$name:success:$try:$g_current_commit:$fail"
+    else
+        echo "$name:$stat:$try:$succ:$fail"
+    fi
+done <<< "$status_content" > "$status_file"
 } #}}}
 
 ###
@@ -1028,6 +1051,10 @@ local repo_path="$1"
 local trunk="$2"
 local build_path="$3"
 
+local status_file="${conf[build_path]}/git_e17_status"
+
+[[ -e "$status_file" ]] || touch "$status_file"
+
 for pkg in $packages; do
     #
     # please use only
@@ -1035,11 +1062,27 @@ for pkg in $packages; do
     # msg_ani - for animation mode messages
     # within this loop for output
     #
-
     if [[ $pkg == __* ]]; then
         echo -e "${bold}${packages_msg["$pkg"]}${norm}"
         continue
     fi
+
+    status_content="$(cat "$status_file")"
+    local name_found=false
+    while IFS=: read -r name stat try succ fail; do
+        if [[ "$pkg" == $name ]]; then
+            echo "$name:$stat:$g_current_commit:$succ:$fail"
+            name_found=true
+        else
+            if [[ -n "$name" ]]; then
+                echo "$name:$stat:$try:$succ:$fail"
+            fi
+        fi
+    done <<< "$status_content" > "$status_file"
+    if ! $name_found; then
+        echo "$pkg:x:$g_current_commit:na:na" >> "$status_file"
+    fi
+
 
     msg "- trying to build $pkg ..."
 

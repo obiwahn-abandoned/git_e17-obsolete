@@ -881,6 +881,15 @@ for pkg in $packages; do
         debug 3 "last successfully bulid commit: $succ_commit"
         #get files that differ form last successfully build commit
         new_files="$(git diff --name-only "$succ_commit" -- "${path_map[$pkg]}")"
+
+        if [[ $? -ne 0 ]]; then
+            #build it because git diff failed.
+            packages_new+="$pkg "
+            #echo "git diff --name-only $succ_commit -- ${path_map[$pkg]} failed"
+            echo "git diff failed"
+            continue
+        fi
+
         debug 4 "new files for $pkg: $new_files"
 
         local new_dirs="$(

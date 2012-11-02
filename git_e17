@@ -866,15 +866,15 @@ for pkg in $packages; do
         if [[ -z "$succ_build" ]]; then
             #build it because we have no info
             packages_new+="$pkg "
-            echo "changed"
+            echo "never build"
             continue
         fi
 
-        IFS=: read -r _ _ _ succ_commit _ <<< "$succ_build"
+        IFS=: read -r _ stat try succ_commit fail <<< "$succ_build"
         if [[ "$succ_commit" == "na" ]]; then
-            #build it because it was never build
+            #build it because it was never build successfully
             packages_new+="$pkg "
-            echo "changed"
+            echo "never build"
             continue
         fi
 
@@ -1065,6 +1065,7 @@ for pkg in $packages; do
         continue
     fi
 
+    # TODO - ormaaj suggests to use temp files here - I was too lazy ...
     status_content="$(cat "$status_file")"
     local name_found=false
     while IFS=: read -r name stat try succ fail; do

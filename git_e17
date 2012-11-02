@@ -147,7 +147,7 @@ printf '%b\n' \
    "" \
    "actions:" \
    "    ${green}build${norm}" \
-   "        build everything" \
+   "        build and install" \
    "    ${green}update${norm}" \
    "        update your e17 to the latest version" \
    "    list" \
@@ -172,7 +172,6 @@ printf '%b\n' \
    "    -i | --ignore pkg1,pkg2,pkg2" \
    "    -s | --skip-errors" \
    "        skip non fatal errors" \
-   "    -a | --animate" \
    ""
 }
 
@@ -188,16 +187,12 @@ printf '%b\n' \
    "" \
    "changed actions: (when in dev mode actions do not enforce additional options) " \
    "    build" \
-   "        build everything" \
+   "        build and install" \
    "    update" \
-   "        check for updates before building" \
+   "        update source, build and install" \
    "extra actions:" \
-   "    build" \
-   "        build everything" \
-   "    update" \
-   "        check for updates before building" \
    "    fromscratch" \
-   "        delete e17 installation and build e17 from scratch" \
+   "        delete e17 installation and install e17 from scratch" \
    "        ATTENTION: this will rm -fr $install_path" \
    "                   do not do is if you installed to /usr/local" \
    "    check" \
@@ -223,7 +218,7 @@ printf '%b\n' \
    "        does a git pull --no-commit" \
    "    -f | --fetch-reset-hard" \
    "        ATTENTION: this will delete your local changes!!!!" \
-   "        fetches update from remote finds out your current branch" \
+   "        fetches update from remote, finds out your current branch" \
    "        and will do a git reset --hard remote/currentbrach" \
    "" \
    "    --clean / --distclean / --uninstall" \
@@ -235,7 +230,8 @@ printf '%b\n' \
    "    -v | --verbose" \
    "        be more verbose during the build" \
    "    -d | --debug" \
-   "        enable script debugging mode"
+   "        enable script debugging mode" \
+   "    -a | --animate"
 }
 ### end help }}}
 
@@ -420,7 +416,10 @@ if [[ ! -f "$conf_file" ]]; then
     echo "$(default_global_cfg)" > "$conf_file" || ferr "Unable to create $conf_file"
 
     if [[ ! ${conf[git_e17_path]} ]]; then
-        echo -e "\nPlease edit your fresh created ~/.git_e17\nand add the path to the default git e17 path."
+        echo -e "\nPlease edit your fresh created ~/.git_e17."
+        echo    "Set the git_e17_path this dir will be the scripts working dir."
+        echo    "It will contain logs, soure and build dir, configuration files"
+        echo    "and other things."
     fi
 fi
 

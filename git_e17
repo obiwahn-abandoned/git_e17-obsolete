@@ -829,7 +829,7 @@ section " calculating changes "
 g_current_commit="$(git log -1 --format="%H")"
 
 ## Speed this up
-write_name " - building path map"
+write_name "building path map"
 local -A path_map
 for pkg in $packages; do
     find_local_path "$pkg" "${conf[src_path]}" "/trunk"
@@ -849,7 +849,7 @@ done
 echo -e "$ok \n"
 
 packages_new=""
-debug 3 "calulationg packges to update from path map"
+echo "checking packages for changes: "
 for pkg in $packages; do
     if [[ $pkg == __* ]]; then
         packages_new+="$pkg "
@@ -869,6 +869,7 @@ for pkg in $packages; do
             continue
         fi
 
+        local stat try succ_commit fail
         IFS=: read -r _ stat try succ_commit fail <<< "$succ_build"
         if [[ "$succ_commit" == "na" ]]; then
             #build it because it was never build successfully
@@ -932,6 +933,7 @@ msg -e " - Adding $1 to failed list of failed packages\n"
 
 local status_file="${conf[build_path]}/git_e17_status"
 status_content="$(cat "$status_file")"
+local name stat try succ fail
 while IFS=: read -r name stat try succ fail; do
     if [[ "$pkg" == "$name" ]]; then
         echo "$name:failed:$try:$succ:$g_current_commit"
@@ -951,6 +953,7 @@ debug 1 "$FUNCNAME() $*"
 #
 local status_file="${conf[build_path]}/git_e17_status"
 
+local name stat try succ fail
 status_content="$(cat "$status_file")"
 while IFS=: read -r name stat try succ fail; do
     if [[ "$pkg" == "$name" ]]; then
@@ -1067,13 +1070,14 @@ for pkg in $packages; do
     # TODO - ormaaj suggests to use temp files here - I was too lazy ...
     status_content="$(cat "$status_file")"
     local name_found=false
-    while IFS=: read -r name stat try succ fail; do
+    local name stat try succ failed
+    while IFS=: read -r name stat try succ failed; do
         if [[ "$pkg" == $name ]]; then
-            echo "$name:$stat:$g_current_commit:$succ:$fail"
+            echo "$name:$stat:$g_current_commit:$succ:$failed"
             name_found=true
         else
             if [[ -n "$name" ]]; then
-                echo "$name:$stat:$try:$succ:$fail"
+                echo "$name:$stat:$try:$succ:$failed"
             fi
         fi
     done <<< "$status_content" > "$status_file"

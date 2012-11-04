@@ -850,7 +850,7 @@ echo -e "$ok \n"
 
 packages_new=""
 echo "checking packages for changes: "
-echo "package name .............. update status (install status)"
+echo "package name .............. update status - (install status)"
 echo
 
 for pkg in $packages; do
@@ -883,7 +883,7 @@ for pkg in $packages; do
 
         debug 3 "last successfully bulid commit: $succ_commit"
         #get files that differ form last successfully build commit
-        new_files="$(git diff --name-only "$succ_commit" -- "${path_map[$pkg]}")"
+        new_files="$(git diff --name-only "$succ_commit" -- "${path_map[$pkg]}" 2>/dev/null)"
 
         if [[ $? -ne 0 ]]; then
             #build it because git diff failed.
@@ -907,10 +907,10 @@ for pkg in $packages; do
 
         #build it because there are changes in the path
         if echo $new_dirs_uniq | grep -q -E  "${path_map[$pkg]}.*" ; then
-            echo "changed ($stat)"
+            echo "changed - ($stat)"
             packages_new+="$pkg "
         else
-            echo "unchanged ($stat)"
+            echo "unchanged - ($stat)"
         fi
     fi
 done
@@ -1367,7 +1367,11 @@ fi
 log_file="${conf[log_path]}/$pkg.log"
 debug 1 "running in path: $(pwd)"
 
-echo -e "\n\ngit_e17 - $title \n$* \n\n" >>"$log_file"
+echo -e "\n\n" >>"$log_file"
+echo -e "git_e17 - $title\n" >>"$log_file"
+echo -e "command:  $* " >>"$log_file"
+echo -e "dir:      $(pwd)" >>"$log_file"
+echo -e "revision: $g_current_commit \n\n" >>"$log_file"
 
 #run only if pre checks did not fail
 if ! $g_current_failed; then
@@ -2005,6 +2009,11 @@ set_env
 section " installing plugins "
 
 # TODO add to config
+
+cd "${conf[src_path]}" || ferr "unable to cahnge to build path"
+g_current_commit="$(git log -1 --format="%H")" || ferr "unable to get current commit"
+
+
 local plugin_path="${BASH_SOURCE%/*}"
 
 echo "slected plugins: $packages"

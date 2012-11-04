@@ -850,6 +850,9 @@ echo -e "$ok \n"
 
 packages_new=""
 echo "checking packages for changes: "
+echo "package name .............. update status (install status)"
+echo
+
 for pkg in $packages; do
     if [[ $pkg == __* ]]; then
         packages_new+="$pkg "
@@ -857,7 +860,7 @@ for pkg in $packages; do
     fi
     debug 3 "map $pkg: ${path_map[$pkg]}"
     if [[ -n "${path_map[$pkg]}" ]]; then
-        write_name "$pkg "
+        write_name "$pkg"
         # calulate the new dir per package
         #find the last successful install/build
         local succ_build="$(grep "^$pkg" "${conf[build_path]}/git_e17_status")"
@@ -904,10 +907,10 @@ for pkg in $packages; do
 
         #build it because there are changes in the path
         if echo $new_dirs_uniq | grep -q -E  "${path_map[$pkg]}.*" ; then
-            echo "changed"
+            echo "changed ($stat)"
             packages_new+="$pkg "
         else
-            echo "unchanged"
+            echo "unchanged ($stat)"
         fi
     fi
 done

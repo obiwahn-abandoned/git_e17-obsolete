@@ -17,6 +17,7 @@
 
 # this is a hook that will get called fom the main script
 plugin_build(){
+    tmp_commit="$g_current_commit"
     local pluign=$1
     section " $1 plugin "
 
@@ -32,11 +33,12 @@ plugin_build(){
     build "${conf[build_path]}" "" "${conf[build_path]}"
     # build repo_path trunk build_path
 
-    #build evas
+    #build efl
     #to do this the conf should not be changed!
-    echo -e "building evas to enable use of esvg:"
-    rm -fr "${conf[install_path]}/lib/evas"
-    packages="evas"
+    g_current_commit="$tmp_commit"
+    echo -e "building efl to enable use of esvg:"
+    rm -fr "${conf[install_path]}/lib/efl"
+    packages="efl"
     build "${conf[src_path]}" "/trunk" "${conf[build_path]}"
 
     #clean up
@@ -50,11 +52,14 @@ plugin_get_src(){
             if [[ "${conf[action]}" == "update" ]]; then
                 echo "running svn update"
                 cd $pkg_path && svn update
+                #g_current_commit="$(svn info -R | grep "Revision\:" | sort -k2nr | head -n1 | sed 's/Revision: //')"
+                g_current_commit="$(svn info -R | grep "Revision\:" | head -n1 | sed 's/Revision: //')"
             fi
         else
             echo "source will be checked out to ${conf[build_path]}"
             svn checkout "http://enesim.googlecode.com/svn/trunk/$pkg" "$pkg_path" || \
                 ferr "svn checkout failed :("
+            cd $pkg_path && g_current_commit="$(svn info -R | grep "Revision\:" | head -n1 | sed 's/Revision: //')"
         fi
     done
 }

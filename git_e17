@@ -1498,6 +1498,7 @@ elif [ -e "/etc/fedora-release" ]; then
     echo "found distribution fedora"
     deps_dev="${deps_dev/lua5.1/lua}"
     ! ${conf[dev]} || return
+    fedora_check
     unsupported_dist_note
 elif [ -e "/etc/gentoo-release" ]; then
     echo "found distribution gentoo"
@@ -1630,6 +1631,21 @@ else
 fi
 }
 
+fedora_check(){
+
+echo "the following packages should be installed:"
+echo
+echo "git subversion automake autoconf libtool libtool-ltdl libtool-ltdl-devel gcc"
+echo "libX11-devel libpng-devel libjpeg-devel giflib-devel libtiff-devel bzip2-devel"
+echo "libid3tag libid3tag-devel id3lib-devel id3lib fontconfig-devel libXext-devel2"
+echo "libXrender-devel libXcomposite-devel libXdamage-devel libXrandr-devel"
+echo "libXcursor-devel libXinerama-devel openssl-devel curl-devel pam-devel"
+echo "freetype-devel texinfo gettext-devel xine-lib-devel flex bison libxml2-devel"
+echo "libxslt-devel taglib-devel sqlite-devel giblib-devel libxkbfile-devel"
+echo "librsvg2-devel libmpd libmpd-devel gcc-c++ libogg-devel libtheora-devel"
+echo "dbus-devel cvs libudev-devel lua-devel"
+echo
+}
 
 unsupported_dist_note(){
 echo "there are currently no checks for you distribution / OS available"

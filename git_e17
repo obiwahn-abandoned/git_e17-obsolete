@@ -610,7 +610,7 @@ fi
 
 case "$action" in
     fromscratch)
-        (( $(id -u) = 0 )) && echo "idiot!!! Don't do this as root!!!" && exit 666
+        (( $(id -u) == 0 )) && echo "idiot!!! Don't do this as root!!!" && exit 666
         rm -fr "${conf[install_path]}"
         rm -fr "${conf[build_path]}"
         rm -fr "${conf[src_path]}/trunk"

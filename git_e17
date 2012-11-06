@@ -162,21 +162,17 @@ printf '%b\n' \
    "     call plugin hook on named plugins" \
    "" \
    "options:" \
-   "    -h | --help  / ${bold}--dev-help${boldoff}" \
-   "        show help / developer help" \
-   "        ${bold}developer help will give you more actions and options" \
-   "        ${green}--git-e17-path${norm}" \
+   "    -h | --help" \
+   "        show this page" \
+   "    ${green}--git-e17-path${norm}" \
    "        workdir for this script. It will contain the source, config and log" \
    "        files and dirs in which e17 is build. The default git_e17_path sould" \
    "        be ${green}set in ~/.git_e17${norm}" \
-   "    --git-e17-path" \
-   "        This sets the path ot the scripts working directory." \
-   "        It will contain the source checkout, files that are created during" \
-   "        the compilation, log files and information about the installation" \
-   "        status of the packages." \
    "    -i | --ignore pkg1,pkg2,pkg2" \
    "    -s | --skip-errors" \
    "        skip non fatal errors" \
+   "    ${bold}--dev-help${boldoff}" \
+   "        developer help will give you more actions and options" \
    ""
 }
 
@@ -188,7 +184,7 @@ debug 1 "$FUNCNAME() $*"
 
 printf '%b\n' \
    "" \
-   "Enable devmode with --dev on command line or dev=true in a configuration file." \
+   "${red}Enable devmode with --dev on command line or dev=true in a configuration file.${norm}" \
    "" \
    "changed actions: (when in dev mode actions do not enforce additional options) " \
    "    build" \
@@ -209,6 +205,8 @@ printf '%b\n' \
    "        options: sets noob_info=false" \
    "        avoids system checks" \
    "        there will be the time that you want it in you conf" \
+   "    ${bold}-v | --verbose${boldoff}" \
+   "        be more verbose during the build" \
    "    --conf <conf>" \
    "        config file - especially useful if you want multiple installs" \
    "        ONLY CONF NAME - NO FULL PATHS!!!" \
@@ -229,11 +227,9 @@ printf '%b\n' \
    "    --clean / --distclean / --uninstall" \
    "        make clean / distclean / uninstall before building" \
    "    --vmake" \
-   "        more verbse make (V=1)" \
+   "        more verbose make (V=1)" \
    "    --conf_args" \
    "        extra configure args - for all packages" \
-   "    -v | --verbose" \
-   "        be more verbose during the build" \
    "    -d | --debug" \
    "        enable script debugging mode" \
    "    -a | --animate"
@@ -352,8 +348,7 @@ do
             ;;
         --dev-help)
             echo "found option: --dev-help"
-            help
-            devhelp
+            { help; devhelp; } | less -R
             exit 0
             ;;
         -h|--help)

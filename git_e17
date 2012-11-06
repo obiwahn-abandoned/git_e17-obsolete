@@ -169,6 +169,11 @@ printf '%b\n' \
    "        workdir for this script. It will contain the source, config and log" \
    "        files and dirs in which e17 is build. The default git_e17_path sould" \
    "        be ${green}set in ~/.git_e17${norm}" \
+   "    --git-e17-path" \
+   "        This sets the path ot the scripts working directory." \
+   "        It will contain the source checkout, files that are created during" \
+   "        the compilation, log files and information about the installation" \
+   "        status of the packages." \
    "    -i | --ignore pkg1,pkg2,pkg2" \
    "    -s | --skip-errors" \
    "        skip non fatal errors" \
@@ -1622,9 +1627,12 @@ done
 if [[ $missing ]]; then
 	echo -e "${fail}\n\nThe following packages are missing: \n${missing}\n"
 	if (( $(id -u) == 0 )); then
+        g_skip="${conf[skip]}"
+        conf[skip]="ask"
 		if [[ $(ask_yn "do you want to install the missing packages?") == "yes" ]]; then
 			pacman -S $missing || exit 1
 		fi
+        conf[skip]="${g_skip}"
 	else
 		sleep 10
 	fi
@@ -1854,7 +1862,7 @@ esac
 cmd_error(){
 #section ""
 err -e "No vaild command! See --help for usage.\n"
-echo -e "       Or try: ./git_e17 --git-e17-path ~/e17_install build\n"
+echo -e "       Or try: ./git_e17 --git-e17-path ~/path/to/git_e17/working-directory build\n"
 exit 1
 }
 
@@ -2076,6 +2084,7 @@ printf '%b\n' \
    "# item=val - NO SPACES - NO QUOTES" \
    "" \
    "# default git_e17_path" \
+   "# THIS IS THE PATH TO THE SCRIPTS WORKING DIR - PLEASE SET IT" \
    "git_e17_path=${conf[git_e17_path]%/}" \
    "# default config file" \
    "config_file=default.conf" \

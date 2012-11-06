@@ -166,7 +166,7 @@ printf '%b\n' \
    "        show this page" \
    "    ${green}--git-e17-path${norm}" \
    "        workdir for this script. It will contain the source, config and log" \
-   "        files and dirs in which e17 is build. The default git_e17_path sould" \
+   "        files and dirs in which e17 is build. The default git_e17_path should" \
    "        be ${green}set in ~/.git_e17${norm}" \
    "    -i | --ignore pkg1,pkg2,pkg2" \
    "    -s | --skip-errors" \
@@ -1591,14 +1591,11 @@ done
 if [[ $missing ]]; then
     echo -e "${fail}\n\nThe following packages are missing:\n${missing}\n"
     if (( $(id -u) == 0 )); then
-        g_skip="${conf[skip]}"
-        conf[skip]="ask"
         if [[ $(ask_yn "do you want to install the missing packages?") == "yes" ]]; then
             apt-get install $missing || exit 1
         fi
-        conf[skip]="${g_skip}"
     else
-        sleep 10
+        ask_to_cont "Do you want to proceed with the installation ?"
     fi
 else
     echo -e "${ok} \n"
@@ -1623,14 +1620,11 @@ done
 if [[ $missing ]]; then
 	echo -e "${fail}\n\nThe following packages are missing: \n${missing}\n"
 	if (( $(id -u) == 0 )); then
-        g_skip="${conf[skip]}"
-        conf[skip]="ask"
 		if [[ $(ask_yn "do you want to install the missing packages?") == "yes" ]]; then
 			pacman -S $missing || exit 1
 		fi
-        conf[skip]="${g_skip}"
 	else
-		sleep 10
+        ask_to_cont "Do you want to proceed with the installation ?"
 	fi
 else
 	echo -e "${ok} \n"
@@ -1827,6 +1821,9 @@ while true; do
         *) echo "Please answer with yes or no." 1>&2 ;;
     esac
 done
+}
+ask_to_cont(){
+    [[ $(ask_yn "$1") == "yes" ]] || exit 1
 }
 
 pkg_err(){

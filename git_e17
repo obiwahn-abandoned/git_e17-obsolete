@@ -1590,9 +1590,12 @@ done
 if [[ $missing ]]; then
     echo -e "${fail}\n\nThe following packages are missing:\n${missing}\n"
     if (( $(id -u) == 0 )); then
+        g_skip="${conf[skip]}"
+        conf[skip]="ask"
         if [[ $(ask_yn "do you want to install the missing packages?") == "yes" ]]; then
             apt-get install $missing || exit 1
         fi
+        conf[skip]="${g_skip}"
     else
         sleep 10
     fi

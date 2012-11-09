@@ -1870,7 +1870,7 @@ esac
 cmd_error(){
 #section ""
 err -e "No vaild command! See --help for usage.\n"
-echo -e "       Or try: ./git_e17 --git-e17-path ~/path/to/git_e17/working-directory build\n"
+echo -e "       Or try: ./git_e17 --git-e17-path ~/path/to/work-dir build\n"
 exit 1
 }
 

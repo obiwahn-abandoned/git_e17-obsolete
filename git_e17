@@ -2034,6 +2034,40 @@ section " installing plugins "
 
 # TODO add to config
 
+cd "${conf[src_path]}" || ferr "unable to cahnge to build path"
+g_current_commit="$(git log -1 --format="%H")" || ferr "unable to get current commit"
+
+
+local plugin_path="${BASH_SOURCE%/*}"
+
+echo "slected plugins: $packages"
+if [[ $packages == "all"* ]]; then
+    cd "$plugin_path" || ferr "unable to cd into plugin path"
+    local plugins=""
+    for plugin in git_e17-plugin-*; do
+        plugins+=${plugin#git_e17-plugin-}
+    done
+else
+    local plugins="$packages"
+fi
+
+#backup configuration
+local -A conf_backup
+for key in ${!conf[@]}; do
+    conf_backup[$key]=${conf[$key]}
+done
+
+for plugin in $plugins; do
+    section " installing $plugin plugin "
+
+    #source plugin
+    local plugin_path="$plugin_path/git_e17-plugin-$plugin"
+    echo "sourcing: $plugin_path"
+    . "$plugin_path" || ferr "failed to source: $plugin_path"
+
+    #run plugin
+    plugin_build $plugin
+
     #restore configuration
     for key in ${!conf_backup[@]}; do
         conf[$key]=${conf_backup[$key]}

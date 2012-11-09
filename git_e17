@@ -23,19 +23,19 @@ basic_bin="e evas_generic_loaders terminology exchange"
 themes="23oz dark darkness detourious efenniht"
 
 modules_lib="libeweather"
-modules_bin="emprint exalt"
+modules_bin="emprint --exalt"
 modules_extra="alarm comp-scale cpu deskshow diskio drawer eektool elfe"
 modules_extra+=" empris engage eooorg everything-aspell everything-mpris"
 modules_extra+=" everything-pidgin everything-places everything-shotgun everything-skeleton"
-modules_extra+=" everything-tracker everything-wallpaper everything-websearch eweather exalt-client"
+modules_extra+=" everything-tracker everything-wallpaper everything-websearch eweather --exalt-client"
 modules_extra+=" exebuf execwatch flame forecasts iiirk itask mail mem moon mpdule net news penguins"
 modules_extra+=" photo places quickaccess rain screenshot skel slideshow snow taskbar tclock uptime"
 modules_extra+=" weather winlist-ng winselector wlan"
 
-extra_lib="imlib2 enlil ephysics libast python-evas python-ecore python-e_dbusi"
+extra_lib="imlib2 enlil --ephysics --libast python-evas python-ecore python-e_dbusi"
 extra_lib+=" python-edje python-emotion python-elementary shellementary"
-extra_bin="clouseau e_cho e-type e_phys eblock econcentration editje eenvader.fractal emote empower"
-extra_bin+=" enjoy enki entrance ephoto eskiss Eterm expedite exquisite eyelight rage"
+extra_bin=" --clouseau --e_cho --e-type e_phys --eblock --econcentration editje eenvader.fractal --emote empower"
+extra_bin+=" --enjoy enki entrance ephoto eskiss --Eterm --expedite exquisite eyelight rage"
 
 declare -A packages_msg
 packages_msg[__basic_lib]="\nenlightenment foundation libraries:"
@@ -1079,6 +1079,11 @@ for pkg in $packages; do
         continue
     fi
 
+    #skip-packages
+    if [[ $pkg == --* ]]; then
+        continue
+    fi
+
     # TODO - ormaaj suggests to use temp files here - I was too lazy ...
     status_content="$(cat "$status_file")"
     local name_found=false
@@ -2028,40 +2033,6 @@ set_env
 section " installing plugins "
 
 # TODO add to config
-
-cd "${conf[src_path]}" || ferr "unable to cahnge to build path"
-g_current_commit="$(git log -1 --format="%H")" || ferr "unable to get current commit"
-
-
-local plugin_path="${BASH_SOURCE%/*}"
-
-echo "slected plugins: $packages"
-if [[ $packages == "all"* ]]; then
-    cd "$plugin_path" || ferr "unable to cd into plugin path"
-    local plugins=""
-    for plugin in git_e17-plugin-*; do
-        plugins+=${plugin#git_e17-plugin-}
-    done
-else
-    local plugins="$packages"
-fi
-
-#backup configuration
-local -A conf_backup
-for key in ${!conf[@]}; do
-    conf_backup[$key]=${conf[$key]}
-done
-
-for plugin in $plugins; do
-    section " installing $plugin plugin "
-
-    #source plugin
-    local plugin_path="$plugin_path/git_e17-plugin-$plugin"
-    echo "sourcing: $plugin_path"
-    . "$plugin_path" || ferr "failed to source: $plugin_path"
-
-    #run plugin
-    plugin_build $plugin
 
     #restore configuration
     for key in ${!conf_backup[@]}; do

@@ -7,4 +7,8 @@ sudo chmod u+s       "$install_path/lib/enlightenment/utils/enlightenment_sys"
 sudo chown root:root "$install_path/lib/enlightenment/utils/enlightenment_backlight"
 sudo chmod u+s       "$install_path/lib/enlightenment/utils/enlightenment_backlight"
 
+#add e to displaymanager
 sudo ln -s "$install_path/share/xsessions/enlightenment.desktop" /usr/share/xsessions
+
+#make dbus work
+sudo ln -s "$install_path/share/dbus-1/services/*" /usr/share/dbus-1/services

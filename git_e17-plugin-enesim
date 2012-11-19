@@ -30,6 +30,8 @@ plugin_build(){
     section " entering $1 build phase "
     #build the plugin
     echo -e "now building: enesim, ender, etch and egueb"
+    # force - make clean
+    conf[clean]=true
     build "${conf[build_path]}" "" "${conf[build_path]}"
     # build repo_path trunk build_path
 

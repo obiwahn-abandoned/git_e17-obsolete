@@ -346,6 +346,11 @@ do
             echo "found option: --dev '$2'"
             shift 1
             ;;
+        --vmake)
+            echo "found option: --vmake"
+            conf[vmake]="true"
+            shift 1
+            ;;
         --dev-help)
             echo "found option: --dev-help"
             { help; devhelp; } | less -R
@@ -1020,6 +1025,11 @@ echo "PYTHONINCLUDE=$PYTHONINCLUDE"
 export NOCONFIGURE="true"
 echo "NOCONFIGURE=$NOCONFIGURE"
 echo
+if ${conf[vmake]}; then
+    export V=1
+    echo "V=$V"
+fi
+
 
 if ${conf[verbose]}; then
     sleep 5

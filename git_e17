@@ -20,7 +20,7 @@
 ## TODO ## Convert package list strings to arrays!!!
 basic_lib="efl ecore edbus efreet eio eeze e_dbus edje azy ethumb elementary emotion"
 basic_bin="e evas_generic_loaders terminology exchange"
-themes="23oz dark darkness detourious efenniht"
+themes="dark 23oz b_and_w darkness detourious efenniht"
 
 modules_lib="libeweather"
 modules_bin="emprint --exalt"

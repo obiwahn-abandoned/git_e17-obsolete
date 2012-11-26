@@ -75,6 +75,7 @@ conf[animate]=false
 conf[clean]=false
 conf[distclean]=false
 conf[uninstall]=false
+conf[vmake]=false
 
 #for use in errors
 e="\n       "
@@ -1024,11 +1025,9 @@ export PYTHONINCLUDE="$($pythoncmd -c "import distutils.sysconfig; print distuti
 echo "PYTHONINCLUDE=$PYTHONINCLUDE"
 export NOCONFIGURE="true"
 echo "NOCONFIGURE=$NOCONFIGURE"
+export V=1
+echo "V=$V"
 echo
-if ${conf[vmake]}; then
-    export V=1
-    echo "V=$V"
-fi
 
 
 if ${conf[verbose]}; then

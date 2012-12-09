@@ -94,7 +94,7 @@ ok="${bold}${c_green}OK${c_norm}${boldoff}"
 fail="${bold}${c_red}FAILED${c_norm}${boldoff}"
 error="${bold}${c_red}Error:${c_norm}${boldoff}"
 
-conf[git_repo]=http://git.enlightenment.fr/cgit.cgi/svn.git/
+conf[git_repo]="git://git.enlightenment.fr/vcs/svn.git"
 
 ###end global vars }}}
 #### main function {{{

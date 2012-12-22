@@ -14,9 +14,8 @@ Requirements: BASH4, git
 #########################################################################
 
 == Quick Start ==
-
 === Preparation ===
-Go to some dir like ~/.bin then checkout the script:
+Go to some directory like ~/.bin then checkout the script:
 
     git clone git://github.com/ObiWahn/git_e17.git git_e17.git
 
@@ -31,21 +30,18 @@ by your user! So you need to issue the following 2 commands as root!
     mkdir -p /opt/e17
     chown -R youruser:youruser /opt/e17
 
-Now everything is prepared.
-
+Now everything is prepared for the Installation:P
 === Install ===
 To proceed with the installation type:
 
-     git_e17 --git-e17-path /path/to/git_e17/worki-dir build
+     git_e17 --git-e17-path /path/to/git_e17/work-dir build
 
-This Command will create the man configuration file (~/.git_e17) in your home
-and a second default.conf configuration file in the work-dir. The default.conf
+This Command will create the main configuration file (~/.git_e17) in your
+home and a second named default.conf in the work-dir. The default.conf
 keeps the settings for your default configuration like the target installation
 directory.
 
-
 == Usage examples ==
-
 ./git_e17 update
     Get the latest version.
     This uses --fetch-reset-hard so it will wipe you changes!!!!

@@ -32,7 +32,7 @@ by your user! So you need to issue the following 2 commands as root!
 
 Now everything is prepared for the Installation:P
 === Install ===
-To proceed with the installation type:
+To proceed with the installation type (the script will refuse to run as root):
 
      git_e17 --git-e17-path /path/to/git_e17/work-dir build
 
@@ -40,8 +40,12 @@ This Command will create the main configuration file (~/.git_e17) in your
 home and a second named default.conf in the work-dir. The default.conf
 keeps the settings for your default configuration like the target installation
 directory.
+=== Post Install Setup ===
+To integrate e17 into you Desktop you should run as root the setup.sh located
+in the git_e17 checkout. It will add e17 to your login manager, activate hibernate,
+for e17 ...
 
-== Usage examples ==
+== Usage Examples ==
 ./git_e17 update
     Get the latest version.
     This uses --fetch-reset-hard so it will wipe you changes!!!!

@@ -13,19 +13,50 @@ Requirements: BASH4, git
 # Coded by Jan Christoph Uhde - linux (a) obiwahn dot org               #
 #########################################################################
 
-Usage examples:
+== Quick Start ==
+=== Preparation ===
+Go to some directory like ~/.bin then checkout the script:
 
+    git clone git://github.com/ObiWahn/git_e17.git git_e17.git
+
+Then link the script into a directory that is in your PATH
+
+    ln -s ~/.bin/git_e17.git/git_e17 ~/.bin (~/.bin - MUST be in PATH)
+
+Finally you need to choose a place where your installation will go to.
+The default is /opt/e17.  This installation directory MUST be owned
+by your user! So you need to issue the following 2 commands as root!
+
+    mkdir -p /opt/e17
+    chown -R youruser:youruser /opt/e17
+
+Now everything is prepared for the Installation:P
+=== Install ===
+To proceed with the installation type (the script will refuse to run as root):
+
+     git_e17 --git-e17-path /path/to/git_e17/work-dir build
+
+This Command will create the main configuration file (~/.git_e17) in your
+home and a second named default.conf in the work-dir. The default.conf
+keeps the settings for your default configuration like the target installation
+directory.
+=== Post Install Setup ===
+To integrate e17 into you Desktop you should run as root the setup.sh located
+in the git_e17 checkout. It will add e17 to your login manager, activate hibernate,
+for e17 ...
+
+== Usage Examples ==
 ./git_e17 update
     Get the latest version.
     This uses --fetch-reset-hard so it will wipe you changes!!!!
 
 ./git_e17 build
-    Build e17 without updating sources
+    Build e17 without updating sources or install for the first time
 
 ./git_e17 build plugin enesim
-    install enesim libs in order to get esvg support
+    install enesim libs in order to get esvg support (esvg is currently broken)
 
-Developer examples:
+=== Developer examples / Info ===
 ./git_e17 --dev --pull --remote raster --branch terminology update only terminology
 ./git --conf raster_term update
     pull changes form remote raster and build only the package terminology
@@ -41,87 +72,330 @@ You should write extra configuration files there you can specify:
     the way git is you do not have multiple checkouts
     maybe i can do something for you with core.worktree ...
 
-
+== Example of a run ==
 A typical run could look like this:
 
-user@host:~$ ./git_e17 update
-
-------------------------- reading command line options -------------------------
+------------------------------- reading command --------------------------------
 selected action is update
 
 The following Configuration items changed:
 action=update
 ------------------ reading global configuration in ~/.git_e17 ------------------
-git e17 path set to /mnt/backup/build/git_e17
+git e17 path set to /mnt/data/build/e17
 config file set to default.conf
 
 The following Configuration items changed:
 config_file=default.conf
-git_e17_path=/mnt/backup/build/git_e17
+git_e17_path=/mnt/data/build/e17
 ------------ reading git-e17-path configuration file (default.conf) ------------
 The following Configuration items changed:
 evas_conf_args=--enable-gl-x11
 threads=8
-src_path=/mnt/backup/build/git_e17/e.org.git
+src_path=/mnt/data/build/e17/e.org.git
 nice=19
-log_path=/mnt/backup/build/git_e17/log
-install_path=/usr/opt/e17
+log_path=/mnt/data/build/e17/log
+install_path=/opt/e17
 doc=false
 packagelist=full
-on_error=skip
+on_error=ask
 cflags=-g
-build_path=/mnt/backup/build/git_e17/build
+build_path=/mnt/data/build/e17/build
 -------------------------- reading global cfg options --------------------------
 The configuration did not Change!
 --------------------------- assigning default vaules ---------------------------
 The following Configuration items changed:
 pull=false
+noob_info=true
 fetch=false
 remote=origin
+------------------------------- interpret action -------------------------------
+These changes are forces by options
+The following Configuration items changed:
+animate=true
+branch=master
+fetch=true
+on_error=skip
+---------------------------- checking configuration ----------------------------
+Configuration passed all checks.
+----------------------- distribution setting and checks ------------------------
+found distribution debian
+
+ ### This check should work for Debian wheezy/sid and Ubuntu precise ###
+
+dependences:
+git autoconf automake1.9 autotools-dev autoconf-archive gettext libtool
+libpng12-dev libtiff4-dev libgif-dev libbz2-dev libltdl-dev pkg-config
+build-essential flex bison byacc libxcursor-dev libtag1-dev sqlite
+libsqlite3-dev libxslt1.1 libxslt1-dev giblib1 giblib-dev libtool
+libmpd1 libmpd-dev libxcomposite-dev libxcomposite1 libxdamage-dev
+libxkbfile-dev libxkbfile1 libxkbfile-dev libxkbfile1 libdbus-1-dev
+libpopt-dev libglib2.0-dev libfontconfig1-dev libxrandr-dev libasound2-dev
+cvs automake libgstreamer0.10-dev menu menu-xdg xdg-utils liblua5.1-0-dev
+libexif-dev mesa-common-dev libudev-dev cython libxcb-shape0-dev python-dev
+libtuxcap-dev chipmunk-dev autopoint libpoppler-private-dev
+x11proto-print-dev libxp-dev libxtst-dev libfribidi-dev libxss-dev
+libiptcdata0-dev libcurl4-openssl-dev libsdl1.2-dev
+
+checking packages ......... OK
+
+proceeding with general checks
+
+checking commands:
+git ....................... OK
+make ...................... OK
+automake .................. OK
+byacc ..................... OK
+g++ ....................... OK
+gcc ....................... OK
+libtool ................... OK
+pkg-config ................ OK
+
+checking includes:
+dbus-1 .................... OK
+fontconfig ................ OK
+freetype .................. OK
+GL ........................ OK
+jpeg ...................... OK
+lua5.1 .................... OK
+png ....................... OK
+udev ...................... OK
+xml2 ...................... OK
+X11 ....................... OK
+Xext ...................... OK
+Xrandr .................... OK
+xcb ....................... OK
 ----------------------------- getting source code ------------------------------
-changeing into /mnt/backup/build/git_e17/e.org.git
+changing into /mnt/data/build/e17/e.org.git
 Your current branch is master
-You are at commit 1c81ddee8d52b374555b6ca68ed95b5b4ff734f1
----------------------------------- git fetch  ----------------------------------
-checking out master so that you local master matchtes the remote branch
-i think this is a good requirement to save the average person from harm:)
+You are at commit c1afd86d435ff9f46532568e4ee5cc73be37bd18
+------------------------ git fetch && git reset --hard -------------------------
+checking out master so that you local master matches the remote branch
+i think this is a good default for people that are not messing with the code
 git fetch origin
-From http://git.enlightenment.fr/cgit.cgi/svn
-1c81dde..5dbd5d9  master     -> origin/master
+From git://git.enlightenment.fr/vcs/svn
+   c1afd86..28b82d8  master     -> origin/master
+git clean -f -d
 git reset --hard  origin/master
-HEAD is now at 5dbd5d9 breaks java! yay!
+HEAD is now at 28b82d8 E17: THE RELEASINATING IS NOW
+----------------------------- calculating changes ------------------------------
+building path map ......... OK
+
+checking packages for changes:
+package name .............. update status - (install status)
+
+efl ....................... changed - (success)
+edbus ..................... changed - (success)
+efreet .................... changed - (success)
+eeze ...................... unchanged - (success)
+e_dbus .................... unchanged - (success)
+edje ...................... changed - (success)
+azy ....................... unchanged - (success)
+ethumb .................... changed - (success)
+elementary ................ changed - (success)
+emotion ................... unchanged - (success)
+e ......................... changed - (success)
+evas_generic_loaders ...... unchanged - (success)
+terminology ............... unchanged - (success)
+exchange .................. unchanged - (success)
+dark ...................... unchanged - (success)
+23oz ...................... never build
+b_and_w ................... never build
+darkness .................. never build
+detourious ................ unchanged - (success)
+efenniht .................. unchanged - (success)
+libeweather ............... unchanged - (success)
+emprint ................... unchanged - (success)
+alarm ..................... changed - (success)
+comp-scale ................ changed - (success)
+cpu ....................... changed - (success)
+deskshow .................. unchanged - (success)
+diskio .................... unchanged - (success)
+eektool ................... changed - (success)
+elfe ...................... unchanged - (success)
+empris .................... unchanged - (success)
+engage .................... changed - (success)
+eooorg .................... changed - (success)
+everything-aspell ......... changed - (success)
+everything-mpris .......... changed - (success)
+everything-pidgin ......... changed - (success)
+everything-places ......... changed - (success)
+everything-shotgun ........ unchanged - (success)
+everything-skeleton ....... unchanged - (success)
+everything-tracker ........ changed - (success)
+everything-wallpaper ...... changed - (success)
+everything-websearch ...... changed - (success)
+eweather .................. unchanged - (success)
+exebuf .................... changed - (success)
+execwatch ................. unchanged - (success)
+flame ..................... changed - (success)
+forecasts ................. changed - (success)
+iiirk ..................... changed - (success)
+itask ..................... unchanged - (success)
+mail ...................... changed - (success)
+mem ....................... changed - (success)
+moon ...................... changed - (success)
+mpdule .................... unchanged - (success)
+net ....................... changed - (success)
+news ...................... changed - (success)
+penguins .................. changed - (success)
+photo ..................... changed - (success)
+places .................... changed - (success)
+rain ...................... changed - (success)
+screenshot ................ changed - (success)
+skel ...................... changed - (success)
+slideshow ................. changed - (success)
+snow ...................... changed - (success)
+taskbar ................... changed - (success)
+tclock .................... unchanged - (success)
+uptime .................... changed - (success)
+weather ................... changed - (success)
+winlist-ng ................ changed - (success)
+winselector ............... unchanged - (success)
+wlan ...................... changed - (success)
+imlib2 .................... unchanged - (success)
+enlil ..................... unchanged - (success)
+python-evas ............... unchanged - (success)
+python-ecore .............. unchanged - (success)
+python-edje ............... unchanged - (success)
+python-emotion ............ unchanged - (success)
+python-elementary ......... unchanged - (success)
+shellementary ............. changed - (success)
+editje .................... unchanged - (success)
+eenvader.fractal .......... unchanged - (success)
+empower ................... changed - (success)
+enki ...................... unchanged - (success)
+entrance .................. unchanged - (success)
+ephoto .................... changed - (failed)
+eskiss .................... unchanged - (success)
+exquisite ................. unchanged - (success)
+eyelight .................. unchanged - (success)
+rage ...................... unchanged - (success)
+The following packages are not up to date:
+
+__basic_lib efl edbus efreet edje ethumb elementary __basic_bin e __themes
+b_and_w darkness __modules_lib __modules_bin __modules_extra alarm
+cpu eektool engage eooorg everything-aspell everything-mpris
+everything-places everything-tracker everything-wallpaper
+exebuf flame forecasts iiirk mail mem moon net news penguins photo places
+screenshot skel slideshow snow taskbar uptime weather winlist-ng wlan
+shellementary __extra_bin empower ephoto
 ------------------------- looking for failed packages --------------------------
 not implemented
------------------------------ calculating changes ------------------------------
-acquiring change set via:
-git diff --name-only g_old_commit g_current_commit
-old: 1c81ddee8d52b374555b6ca68ed95b5b4ff734f1
-new: 5dbd5d934e8033a7a85655d9d7adbcaeb27d338a
-receiving paths
-building path map
-The following packages are not up to date:
-ecore edje e python-elementary exquisite terminology
------------------------------setting env variables -----------------------------
-PATH=/usr/opt/e17/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/home/build/.bin:/usr/opt/e17/bin
-ACLOCAL_FLAGS=-I /usr/opt/e17/share/aclocal
-LD_LIBRARY_PATH=/usr/opt/e17/lib:
-PKG_CONFIG_PATH=/usr/opt/e17/lib/pkgconfig:
-CPPFLAGS= -I/usr/opt/e17/include
-LDFLAGS= -L/usr/opt/e17/lib
+------------------------ setting environment variables -------------------------
+PATH=/opt/e17/bin:/home/someuser/.bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/opt/e17/bin
+ACLOCAL_FLAGS=-I /opt/e17/share/aclocal
+LD_LIBRARY_PATH=/opt/e17/lib:
+PKG_CONFIG_PATH=/opt/e17/lib/pkgconfig:
+CPPFLAGS= -I/opt/e17/include
+LDFLAGS= -L/opt/e17/lib
+LD_RUN_PATH=/opt/e17/lib
 CFLAGS= -g
-PYTHONPATH=/usr/opt/e17/lib/python2.7/site-packages
-PYTHONINCLUDE=/usr/opt/e17/include/python2.7
+PYTHONPATH=/opt/e17/lib/python2.7/site-packages
+PYTHONINCLUDE=/opt/e17/include/python2.7
 NOCONFIGURE=true
+V=1
 
 checking existence of $install_path/share/aclocal $PYTHONPATH $PYTHONINCLUDE ...
 ----------------------------- entering build phase -----------------------------
 The following packages will be build:
 
-ecore edje e python-elementary exquisite terminology
+__basic_lib efl edbus efreet edje ethumb elementary __basic_bin e __themes
+b_and_w darkness __modules_lib __modules_bin __modules_extra alarm
+cpu eektool engage eooorg everything-aspell everything-mpris
+everything-places everything-tracker everything-wallpaper
+exebuf flame forecasts iiirk mail mem moon net news penguins photo places
+screenshot skel slideshow snow taskbar uptime weather winlist-ng wlan
+shellementary __extra_bin empower ephoto
 
-ecore ..................... OK
+
+enlightenment foundation libraries:
+efl ....................... OK
+edbus ..................... OK
+efreet .................... OK
 edje ...................... OK
+ethumb .................... OK
+elementary ................ OK
+
+basic binaries:
 e ......................... OK
-python-elementary ......... OK
-exquisite ................. OK
-terminology ............... OK
+E17 is installed :) The rest is optional!!
+Do not bug me or people in #e if other packages fail!
+themes:
+
+23oz ...................... FAILED
+b_and_w ................... FAILED
+darkness .................. FAILED
+
+module libraries:
+
+module binaries:
+
+module extras
+alarm ..................... OK
+comp-scale ................ OK
+cpu ....................... OK
+eektool ................... OK
+engage .................... OK
+eooorg .................... OK
+everything-aspell ......... OK
+everything-mpris .......... OK
+everything-pidgin ......... OK
+everything-places ......... OK
+everything-tracker ........ OK
+everything-wallpaper ...... OK
+everything-websearch ...... OK
+exebuf .................... OK
+flame ..................... OK
+forecasts ................. OK
+iiirk ..................... OK
+mail ...................... OK
+mem ....................... OK
+moon ...................... OK
+net ....................... OK
+news ...................... OK
+penguins .................. OK
+photo ..................... OK
+places .................... OK
+rain ...................... OK
+screenshot ................ OK
+skel ...................... OK
+slideshow ................. OK
+snow ...................... OK
+taskbar ................... OK
+uptime .................... OK
+weather ................... OK
+winlist-ng ................ OK
+wlan ...................... OK
+
+extra libraries:
+shellementary ............. OK
+
+extra binaries:
+empower ................... OK
+ephoto .................... FAILED
+
+The following packages failed to build:
+23oz b_and_w darkness ephoto
+------------------------------------- info -------------------------------------
+Your installation of Enlightenment is successful!
+
+You can rebuild failed packages with ./git_e17 build only names of failed.
+To update you installation use ./git_e17 update
+You need to add the following lines to your ~/.profile or shells profile file:
+
+    # Make e17 bins like enlightenment_start available from any location
+    export PATH="/opt/e17/bin:$PATH"
+
+    # Add new python2 libs to PYTHONPATH
+    export PYTHONPATH="/opt/e17/lib/python2.7/dist-packages:$PYTHONPATH"
+
+    # Add e17 libs to your users linker search path
+    # Doing it like this is considered harmful by some people and most programs
+    # are compiled with RPATH anyway - Read on LD_LIBRARY_PATH!!!
+    #export LD_LIBRARY_PATH="/opt/e17/bin:$LD_LIBRARY_PATH"
+
+In order to use enlightenment with gdm, kdm, xdm ...  as root you need to:
+ln -s /opt/e17/share/xessions/enlightenment.desktop /usr/share/xsessions/
+If it does not work ask for an equivalent of /usr/share/xessions
+at your distribution's website or (freenode) IRC channel.
+

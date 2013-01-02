@@ -6,6 +6,8 @@ sudo chown root:root "$install_path/lib/enlightenment/utils/enlightenment_sys"
 sudo chmod u+s       "$install_path/lib/enlightenment/utils/enlightenment_sys"
 sudo chown root:root "$install_path/lib/enlightenment/utils/enlightenment_backlight"
 sudo chmod u+s       "$install_path/lib/enlightenment/utils/enlightenment_backlight"
+sudo chown root:root $install_path/lib/enlightenment/modules/cpufreq/*/freqset
+sudo chmod u+s,a+x   $install_path/lib/enlightenment/modules/cpufreq/*/freqset
 
 #add e to displaymanager
 sudo ln -s "$install_path/share/xsessions/enlightenment.desktop" /usr/share/xsessions

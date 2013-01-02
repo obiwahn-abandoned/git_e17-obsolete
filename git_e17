@@ -1619,7 +1619,7 @@ fi
 
 archlinux_check(){
 local deps_arch="git autoconf automake binutils bison fakeroot flex gcc libtool m4 make patch pkg-config "
-deps_arch+="dbus fontconfig freetype2 libjpeg-turbo lua libpng libxml2 libx11 libxext libxrandr libxcb"
+deps_arch+="dbus fontconfig freetype2 libjpeg-turbo lua libpng libxml2 libx11 libxext libxrandr libxcb libxp"
 
 local missing=""
 

@@ -1578,7 +1578,7 @@ deps_debian_common+="libxdamage1 libxkbfile-dev libxkbfile1 libxkbfile-dev libxk
 deps_debian_common+="libglib2.0-dev libfontconfig1-dev libxrandr-dev libasound2-dev libxinerama-dev cvs automake libgstreamer0.10-dev menu "
 deps_debian_common+="menu-xdg xdg-utils liblua5.1-0-dev dbus-x11 libexif-dev mesa-common-dev libudev-dev cython "
 deps_debian_common+="libxcb-shape0-dev python-dev libcanberra-dev libtuxcap-dev chipmunk-dev autopoint libpoppler-private-dev "
-deps_debian_common+="libxcb-keysyms1-dev x11proto-print-dev libxp-dev libxtst-dev libfribidi-dev libxss-dev "
+deps_debian_common+="libxcb-keysyms1-dev x11proto-print-dev libxp-dev libxtst-dev libfribidi-dev libxss-dev libmount-dev "
 
 ##TODO finish the lists
 local stable="libpam-dev libiptcdata-dev libcurl4-gnutls-dev libsdl-dev "

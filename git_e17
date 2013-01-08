@@ -1659,7 +1659,8 @@ echo "libXcursor-devel libXinerama-devel openssl-devel curl-devel pam-devel"
 echo "freetype-devel texinfo gettext-devel xine-lib-devel flex bison libxml2-devel"
 echo "libxslt-devel taglib-devel sqlite-devel giblib-devel libxkbfile-devel"
 echo "librsvg2-devel libmpd libmpd-devel gcc-c++ libogg-devel libtheora-devel"
-echo "dbus-devel cvs libudev-devel lua-devel"
+echo "dbus-devel cvs libudev-devel lua-devel libXp-devel pulseaudio-libs-devel "
+echo "libsndfile-devel libmount-devel bullet-devel xcb-util-keysyms-devel"
 echo
 }
 

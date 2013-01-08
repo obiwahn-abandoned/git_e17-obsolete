@@ -30,6 +30,9 @@ plugin_build(){
     section " entering $1 build phase "
     #build the plugin
     echo -e "now building: bullet"
+
+    conf[bullet_conf_args]="--disable-demos"
+
     # build repo_path trunk build_path
     build "${conf[build_path]}" "" "${conf[build_path]}"
 
@@ -42,14 +45,14 @@ plugin_get_src(){
         local pkg_path="${conf[build_path]}/$pkg"
         if [[ -d "$pkg_path" ]]; then
             if [[ "${conf[action]}" == "update" ]]; then
-                echo "running svn update"
+                echo "running svn update -r 2613"
                 cd $pkg_path && svn update
                 #g_current_commit="$(svn info -R | grep "Revision\:" | sort -k2nr | head -n1 | sed 's/Revision: //')"
                 g_current_commit="$(svn info -R | grep "Revision\:" | head -n1 | sed 's/Revision: //')"
             fi
         else
             echo "source will be checked out to ${conf[build_path]}"
-            svn checkout "http://bullet.googlecode.com/svn/trunk/" "$pkg_path" || \
+            svn checkout -r 2613 "http://bullet.googlecode.com/svn/trunk/" "$pkg_path" || \
                 ferr "svn checkout failed :("
             cd $pkg_path && g_current_commit="$(svn info -R | grep "Revision\:" | head -n1 | sed 's/Revision: //')"
         fi

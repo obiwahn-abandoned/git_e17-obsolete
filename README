@@ -31,10 +31,18 @@ by your user! So you need to issue the following 2 commands as root!
     chown -R youruser:youruser /opt/e17
 
 Now everything is prepared for the Installation:P
+
 === Install ===
 To proceed with the installation type (the script will refuse to run as root):
 
-     git_e17 --git-e17-path /path/to/git_e17/work-dir build
+     ./git_e17 --git-e17-path /path/to/git_e17/work-dir build
+
+     or
+
+     ./git_e17 --git-e17-path /path/to/git_e17/work-dir build plugin bullet
+     ./git_e17 build
+
+     if your distribution does not provie a libbullet-dev package.
 
 This Command will create the main configuration file (~/.git_e17) in your
 home and a second named default.conf in the work-dir. The default.conf

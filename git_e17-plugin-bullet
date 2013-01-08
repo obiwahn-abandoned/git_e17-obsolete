@@ -1,0 +1,57 @@
+#!/bin/bash
+
+#
+# git_e17 - enesim plugin
+#
+
+#
+# PLUGINS:
+# - are called via git_e17 <action> plugin <name>
+# - need to be in the same path as git_e17!
+# - must be named: git_e17-plugin-<name>
+# - You can use all functions from git_e17 :)
+# - conf will get restored automatically
+# - please do not touch other global vars that are
+#   used by the script or restore them
+#
+
+# this is a hook that will get called fom the main script
+plugin_build(){
+    tmp_commit="$g_current_commit"
+    local pluign=$1
+    section " $1 plugin "
+
+    #packages to be installed
+    packages="bullet"
+
+    #get src
+    plugin_get_src
+
+    section " entering $1 build phase "
+    #build the plugin
+    echo -e "now building: bullet"
+    # build repo_path trunk build_path
+    build "${conf[build_path]}" "" "${conf[build_path]}"
+
+    #clean up
+    packages=""
+}
+
+plugin_get_src(){
+    for pkg in $packages; do
+        local pkg_path="${conf[build_path]}/$pkg"
+        if [[ -d "$pkg_path" ]]; then
+            if [[ "${conf[action]}" == "update" ]]; then
+                echo "running svn update"
+                cd $pkg_path && svn update
+                #g_current_commit="$(svn info -R | grep "Revision\:" | sort -k2nr | head -n1 | sed 's/Revision: //')"
+                g_current_commit="$(svn info -R | grep "Revision\:" | head -n1 | sed 's/Revision: //')"
+            fi
+        else
+            echo "source will be checked out to ${conf[build_path]}"
+            svn checkout "http://bullet.googlecode.com/svn/trunk/" "$pkg_path" || \
+                ferr "svn checkout failed :("
+            cd $pkg_path && g_current_commit="$(svn info -R | grep "Revision\:" | head -n1 | sed 's/Revision: //')"
+        fi
+    done
+}

@@ -2046,9 +2046,10 @@ section " installing plugins "
 
 # TODO add to config
 
+pushd ${PWD} &>/dev/null
 cd "${conf[src_path]}" || ferr "unable to cahnge to build path"
 g_current_commit="$(git log -1 --format="%H")" || ferr "unable to get current commit"
-
+popd &>/dev/null
 
 local plugin_path="${BASH_SOURCE%/*}"
 

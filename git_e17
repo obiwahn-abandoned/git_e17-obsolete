@@ -1293,7 +1293,7 @@ g_current_failed=false
           run_cmd "$pkg" "$src_path" "" "autogen" "./autogen.sh"
           ;;&
       cmake)
-          run_cmd "$pkg" "$src_path" "" "cmake" "cmake -DCMAKE_INSTALL_PREFIX=$install_path $src_path"
+          run_cmd "$pkg" "$src_path" "" "cmake" "cmake -DCMAKE_INSTALL_PREFIX=$install_path $pkg_conf_args $src_path"
           ;;&
       bootstrap)
           run_cmd "$pkg" "$src_path" "" "boostrap" "./bootstrap"

@@ -1244,7 +1244,9 @@ local log_file="${conf[log_path]}/$pkg.log"
 [[ -e "$log_file" ]] && rm "$log_file"
 
 # find type of build process
-if   [ -e "$src_path/autogen.sh" ];
+if   [ -e "$src_path/CMakeLists.txt" ];
+    then build_type="cmake"
+elif   [ -e "$src_path/autogen.sh" ];
     then build_type="autogen"
 elif [ -e "$src_path/bootstrap" ];
     then build_type="bootstrap"
@@ -1263,7 +1265,7 @@ debug 1 "Type of build system $build_type"
 
 declare -g g_clean_phase=true
 case "$build_type" in
-    autogen|bootstrap)
+    autogen|bootstrap|cmake)
         ${conf[uninstall]} && run_cmd "$pkg" "$src_path" "$build_path" "make uninstall" "make uninstall"
         g_current_failed=false
         ${conf[clean]}     && run_cmd "$pkg" "$src_path" "$build_path" "make clean"     "make clean"
@@ -1290,6 +1292,9 @@ g_current_failed=false
       autogen)
           run_cmd "$pkg" "$src_path" "" "autogen" "./autogen.sh"
           ;;&
+      cmake)
+          run_cmd "$pkg" "$src_path" "" "cmake" "cmake -DCMAKE_INSTALL_PREFIX=$install_path $src_path"
+          ;;&
       bootstrap)
           run_cmd "$pkg" "$src_path" "" "boostrap" "./bootstrap"
           ;;&
@@ -1299,7 +1304,7 @@ g_current_failed=false
       autogen|bootstrap) #configure
           $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "configure" "$src_path/configure --prefix=$install_path $pkg_conf_args"
           ;;&
-      autogen|bootstrap|perl) # make && make install
+      autogen|cmake|bootstrap|perl) # make && make install
         $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "make" "make -j ${conf[threads]}"
         $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "install" "make install"
           ;;

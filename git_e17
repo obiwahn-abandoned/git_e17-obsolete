@@ -22,7 +22,7 @@ basic_lib="efl e_dbus azy elementary"
 basic_bin="e evas_generic_loaders terminology exchange"
 themes="dark 23oz b_and_w darkness detourious efenniht"
 
-modules_lib="libeweather"
+modules_lib="libeweather etrophy"
 modules_bin="emprint --exalt"
 modules_extra="alarm comp-scale cpu deskshow diskio drawer eektool elfe"
 modules_extra+=" empris engage eooorg everything-aspell everything-mpris"

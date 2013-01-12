@@ -1,0 +1,42 @@
+#!/bin/bash
+
+#
+# git_e17 - elemines plugin
+#
+
+# this is a hook that will get called fom the main script
+plugin_build(){
+    tmp_commit="$g_current_commit"
+    local pluign=$1
+    section " $1 plugin "
+
+    pkg="elemines"
+
+    #get src
+    plugin_get_src
+
+    #build the plugin
+    section " entering $1 build phase "
+    echo -e "now building: elemines"
+    build "${conf[build_path]}" "" "${conf[build_path]}"
+
+    #clean up
+    packages="idfasd  dasfdsfad dafdsf"
+}
+
+plugin_get_src(){
+    local pkg_path="${conf[build_path]}/$pkg"
+    if [[ -d "$pkg_path" ]]; then
+        if [[ "${conf[action]}" == "update" ]]; then
+            echo "running svn update"
+            cd $pkg_path && git reset --hard master && git pull || \
+                ferr "failed to update"
+        fi
+    else
+        echo "source will be checked out to ${conf[build_path]}"
+            git clone git://git.code.sf.net/p/elemines/code "$pkg_path" || \
+                ferr "git clone failed :("
+    fi
+    cd $pkg_path && g_current_commit="$(git log -1 --format="%H")" || \
+        ferr "failed to get revision"
+}

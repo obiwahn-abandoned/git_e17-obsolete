@@ -4,19 +4,40 @@
 # git_e17 - elemines plugin
 #
 
+#
+# PLUGINS:
+# - are called via git_e17 <action> plugin <name>
+# - need to be in the same path as git_e17!
+# - must be named: git_e17-plugin-<name>
+# - You can use all functions from git_e17 :)
+# - conf will get restored automatically
+# - please do not touch other global vars that are
+#   used by the script or restore them
+#
 # this is a hook that will get called fom the main script
+
 plugin_build(){
     local pluign=$1
+    #packages to build
+    packages="elemines"
+
+    ## setting of build path
+    local trunk_offset=""
+    #/$pkg is automatically appended to the following vars!!!
+    local src_path="${conf[build_path]}" #for all plugins the same
+    local build_path="${conf[build_path]}" #for all plugins the same
+
     section " $1 plugin "
-    pkg="$plugin"
 
     #get src
-    plugin_get_src
+    for pkg in "${packages[@]}"; do
+        plugin_get_src
+    done
 
-    #build the plugin
-    section " entering $1 build phase "
-    echo -e "now building: elemines"
-    build "${conf[build_path]}" "" "${conf[build_path]}"
+    #build the plugin (builds all the pkgs contained in $packages)
+    section " entering $plugin build phase "
+    echo -e "now building: $plugin"
+    build "$src_path" "$trunk_offset" "$build_path"
 }
 
 plugin_get_src(){

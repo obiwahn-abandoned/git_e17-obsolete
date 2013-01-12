@@ -6,11 +6,9 @@
 
 # this is a hook that will get called fom the main script
 plugin_build(){
-    tmp_commit="$g_current_commit"
     local pluign=$1
     section " $1 plugin "
-
-    pkg="elemines"
+    pkg="$plugin"
 
     #get src
     plugin_get_src
@@ -19,9 +17,6 @@ plugin_build(){
     section " entering $1 build phase "
     echo -e "now building: elemines"
     build "${conf[build_path]}" "" "${conf[build_path]}"
-
-    #clean up
-    packages="idfasd  dasfdsfad dafdsf"
 }
 
 plugin_get_src(){

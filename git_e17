@@ -1314,7 +1314,7 @@ g_current_failed=false
           ;;
       python)
         run_cmd "$pkg" "$src_path" "" "setup.py-build" "python setup.py build build_ext --include-dirs=$PYTHONINCLUDE $pkg_conf_args"
-        $g_current_failed || run_cmd "$pkg" "$src_path" "" "setip-py-install" "$pythoncmd setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
+        $g_current_failed || run_cmd "$pkg" "$src_path" "" "setup-py-install" "$pythoncmd setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
           ;;
       *)
           msg "  - no build system ... $fail"

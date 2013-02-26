@@ -1257,6 +1257,8 @@ elif [ -e "$src_path/Makefile" ]; then
     export PREFIX="${conf[install_path]}"
 elif [ -e "$src_path/setup.py" ];
     then build_type="python"
+elif [ -e "$src_path/configure" ];
+    then build_type="configure"
 else
     export PREFIX=""
 fi
@@ -1265,7 +1267,7 @@ debug 1 "Type of build system $build_type"
 
 declare -g g_clean_phase=true
 case "$build_type" in
-    autogen|bootstrap|cmake)
+    autogen|bootstrap|cmake|configure)
         ${conf[uninstall]} && run_cmd "$pkg" "$src_path" "$build_path" "make uninstall" "make uninstall"
         g_current_failed=false
         ${conf[clean]}     && run_cmd "$pkg" "$src_path" "$build_path" "make clean"     "make clean"
@@ -1301,10 +1303,10 @@ g_current_failed=false
       perl)
           run_cmd "$pkg" "$src_path" "$build_path" "perlmake" "perl $src_path/Makefile.PL prefix=$install_path"
           ;;&
-      autogen|bootstrap) #configure
+      autogen|bootstrap|configure) #configure
           $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "configure" "$src_path/configure --prefix=$install_path $pkg_conf_args"
           ;;&
-      autogen|cmake|bootstrap|perl) # make && make install
+      autogen|cmake|bootstrap|perl|configure) # make && make install
         $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "make" "make -j ${conf[threads]}"
         $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "install" "make install"
           ;;

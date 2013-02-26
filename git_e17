@@ -1094,7 +1094,7 @@ for pkg in $packages; do
     fi
 
     # TODO - ormaaj suggests to use temp files here - I was too lazy ...
-    status_content="$(cat "$status_file")"
+    status_content="$(cat "$status_file")"      #BAD STYLE
     local name_found=false
     local name stat try succ failed
     while IFS=: read -r name stat try succ failed; do
@@ -1106,7 +1106,7 @@ for pkg in $packages; do
                 echo "$name:$stat:$try:$succ:$failed"
             fi
         fi
-    done <<< "$status_content" > "$status_file"
+    done <<< "$status_content" > "$status_file" #BAD STYLE
     if ! $name_found; then
         echo "$pkg:x:$g_current_commit:na:na" >> "$status_file"
     fi

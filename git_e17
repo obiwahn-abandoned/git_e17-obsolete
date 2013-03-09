@@ -16,15 +16,21 @@
 (( $BASH_VERSINFO < 4 )) && echo -e "\nThis Script requires at least bash version >= 4\n" && exit 1
 
 ### global variable definitions {{{
-declare -A repo_location
-repo_location[efl]="ssh://git.enlightenment.org/core/efl.git"
-repo_location[elementary]="ssh://git.enlightenment.org/core/elementary.git"
-repo_location[enlightenment]="ssh://git.enlightenment.org/core/enlightenment.git"
-repo_location[efr]="git://git.enlightenment.fr/vcs/svn.git"
+declare -A repo
+repo[list]="efl elementary enlightenment efr"
+repo[efl_git]="ssh://git.enlightenment.org/core/efl.git"
+repo[efl_pkg]="efl"
+repo[elementary_git]="ssh://git.enlightenment.org/core/elementary.git"
+repo[elementary_pkg]="elementary"
+repo[enlightenment_git]="ssh://git.enlightenment.org/core/enlightenment.git"
+repo[enlightenment_pkg]="enlightenment e"
+repo[efr_git]="git://git.enlightenment.fr/vcs/svn.git"
+repo[efr_trunk]="trunk/"
+repo[efr_pkg]=""
 
 ## TODO ## Convert package list strings to arrays!!!
-basic_lib=( efl e_dbus azy elementary
-e evas_generic_loaders terminology exchange )
+basic_lib=( efl e_dbus azy elementary )
+basic_bin=( e evas_generic_loaders terminology exchange )
 themes=( dark 23oz b_and_w darkness detourious efenniht )
 
 modules_lib=( libeweather etrophy )

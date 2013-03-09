@@ -16,18 +16,6 @@
 (( $BASH_VERSINFO < 4 )) && echo -e "\nThis Script requires at least bash version >= 4\n" && exit 1
 
 ### global variable definitions {{{
-declare -A repo
-repo[list]="efl elementary enlightenment efr"
-repo[efl_git]="ssh://git.enlightenment.org/core/efl.git"
-repo[efl_pkg]="efl"
-repo[elementary_git]="ssh://git.enlightenment.org/core/elementary.git"
-repo[elementary_pkg]="elementary"
-repo[enlightenment_git]="ssh://git.enlightenment.org/core/enlightenment.git"
-repo[enlightenment_pkg]="enlightenment e"
-repo[efr_git]="git://git.enlightenment.fr/vcs/svn.git"
-repo[efr_trunk]="trunk/"
-repo[efr_pkg]=""
-
 ## TODO ## Convert package list strings to arrays!!!
 basic_lib=( efl e_dbus azy elementary )
 basic_bin=( e evas_generic_loaders terminology exchange )
@@ -71,14 +59,42 @@ packages_full=( ${packages_half[@]}
                 __extra_lib ${extra_lib[@]}
                 __extra_bin ${extra_bin[@]} )
 
+
+declare -A repo
+repo[list]="efl elementary enlightenment efr"
+
+repo[efl_scm]="git"
+repo[efl_url]="git://git.enlightenment.org/core/efl.git"
+repo[efl_default_branch]="master"
+repo[efl_default_remote]="origin"
+repo[efl_pkg]="efl"
+
+repo[elementary_scm]="git"
+repo[elementary_url]="git://git.enlightenment.org/core/elementary.git"
+repo[elementary_default_branch]="master"
+repo[elementary_default_remote]="origin"
+repo[elementary_pkg]="elementary"
+
+repo[enlightenment_scm]="git"
+repo[enlightenment_url]="git://git.enlightenment.org/core/enlightenment.git"
+repo[enlihgtenment_default_branch]="master"
+repo[enlihgtenment_default_remote]="origin"
+repo[enlightenment_pkg]="enlightenment e"
+
+repo[efr_scm]="git"
+repo[efr_url]="git://git.enlightenment.fr/vcs/svn.git"
+repo[efr_default_branch]="master"
+repo[efr_default_remote]="origin"
+repo[efr_trunk]="trunk/"
+repo[efr_pkg]=" e_dbus azy evas_generic_loaders terminology exchange "
+repo[efr_pkg]+="${themes[@]} ${modules_lib[@]} ${modules_bin[@]} "
+repo[efr_pkg]+="${modules_extra[@]} ${extra_lib[@]} ${extra_bin[@]}"
+
 declare -A conf
 declare -A g_old_conf
 
 packages=""
 packages_failed=""
-g_current_commit=""
-g_current_branch=""
-g_old_commit=""
 
 # signals return status of some operations as
 # we lack proper return values
@@ -132,15 +148,14 @@ uninstall
 distcheck
 ## source
 get_src
-git_fetch_reset
-git_pull
 ## package management
 if ! [[ "$packages" ]]; then
     echo -e "\n${bold}No packages to build!${boldoff}\n"
     exit 0
 fi
 ## finding changes
-calculate_updates
+#calculate_updates
+echo "exit in 158" && exit 2
 add_failed
 ignore_pkgs
 ##
@@ -556,9 +571,9 @@ conf[dev]="${conf[dev]:-"false"}"
 
 if [[ ! $packages ]]; then
     case "${conf[packagelist]}" in
-        full)  packages="$packages_full"  ;;
-        half)  packages="$packages_half"  ;;
-        basic) packages="$packages_basic" ;;
+        full)  packages="${packages_full[@]}"  ;;
+        half)  packages="${packages_half[@]}"  ;;
+        basic) packages="${packages_basic[@]}" ;;
         *)     ferr "No valid package list packagelist=full|half|basic" ;;
     esac
 fi
@@ -739,92 +754,164 @@ done
 exit 0
 } #}}}
 
-### functions that scan source code and select packages to be build
+### function that ... TODO
 get_src(){ #{{{
 debug 1 "$FUNCNAME() $*"
 section " getting source code "
+
+#TODO - checkout only the repos that are missing!!!!!
+
+for rep in ${repo[list]}; do
+    local scm="${repo[${rep}_scm]}"
+    local repo_path="${conf[src_path]}/$rep" #path to local repo
+    section " Working on $rep repository "
+    case "$scm" in
+        git)
+            get_src_from_mirror     "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
+            git_fetch_reset         "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
+            git_pull                "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
+            get_revision            "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
+            git_calculate_updates   "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
+        ;;
+        svn)
+            get_src_from_mirror     "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
+            get_revision "$rep"     "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
+            #update
+            get_revision            "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
+            #TODO #svn_calculate_updates   "$scm" "$rep" "$src_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
+        ;;
+        *)
+            #TODO - better error
+            ferr "no valid scm found"
+        ;;
+    esac
+done
+} #}}}
+
+### functions that ... TODO
+get_src_from_mirror(){ #{{{
+debug 1 "$FUNCNAME() $*"
+subsection " checking existence of $2 "
 #
 # Clone Repository if it does not exist and change into to it's directory
 #
 # out:
 #   sets: g_current_branch, g_old_commit
 #
+local scm="$1"
+local rep="$2"
+local repo_path="$3"
+local repo_url="$4"
+local trunk="$5"
 
 g_current_failed=false
 
-local src_path="${conf[src_path]}"
-local git="${conf[git_repo]}"
 local remote="${conf[remote]}"
 
 #delete log file
-rm -fr "${conf[git_e17_path]}/git.log"
+rm -fr "${conf[git_e17_path]}/$scm_$rep.log"
 
 #
 #   TODO - check and double check that this is a reop or exit
 #
 #does the repo exist
-if [[ ! -d ${conf[src_path]} ]]; then
-    #create it
-    echo "cloning ${conf[git_repo]}"
-    for i in {0..10}; do
-        echo "trying to clone git repository"
-            if git clone -v --progress "${conf[git_repo]}" "$src_path"; then
-                repo_cloned=true
-                echo "successfully cloned git repo"
-                break
-            else
-                echo "failed to clone repository"
-            fi
-    done
-    $repo_cloned || ferr "unable to clone repository"
+if [[ ! -d $repo_path ]]; then
+    echo "creating $rep"
+    if [[ $scm == git ]]; then
+        #create it
+        echo "cloning ${conf[git_repo]}"
+        for i in {0..10}; do #try a few times
+            echo "trying to clone git repository"
+                if git clone -v --progress "$repo_url" "$repo_path"; then
+                    repo_cloned=true
+                    echo "successfully cloned git repo"
+                    break
+                else
+                    echo "failed to clone repository"
+                fi
+        done
+        $repo_cloned || ferr "unable to clone repository"
+    else # do it for svn
+        ferr "cloning svn is not implemented"
+    fi
 fi
+echo "repository $rep already exists"
+} #}}}
+
+### get revision of local repository
+get_revision(){ #{{{
+debug 1 "$FUNCNAME() $*"
+subsection " get revision of local repository"
+#
+# get revision
+#
+local scm="$1"
+local rep="$2"
+local repo_path="$3" #path to local repo
 
 #change to repo
-echo "changing into $src_path"
-cd "$src_path" || ferr "failed to cd in $src_path"
+echo "changing into $repo_path"
+cd "$repo_path" || ferr "failed to cd in $repo_path"
 
-#get name of branch
-g_current_branch="$(git symbolic-ref HEAD)"
-g_current_branch="${g_current_branch##*/}"
-[[ -n "$g_current_branch" ]] || ferr "You are not on any branch - Fix your repo!!!"
+if [[ $scm == git ]]; then
+    #get name of branch
+    local current_branch="$(git symbolic-ref HEAD)"
+    current_branch="${current_branch##*/}"
+    [[ -n "$current_branch" ]] || ferr "You are not on any branch - Fix your repo!!!"
+    repo[${rep}_current_branch]="$current_branch"
 
-echo "Your current branch is $g_current_branch"
+    echo "Your current branch is $current_branch"
 
-#get hash of current HEAD
-g_current_commit="$(git log -1 --format="%H")"
-g_old_commit="$(git log -1 --format="%H")"
-echo "You are at commit $g_old_commit"
+    #get hash of current HEAD
+    local current_commit="$(git log -1 --format="%H")"
+    echo "You are at commit $current_commit"
+    repo[${rep}_old_commit]="${repo[${rep}_current_commit]}"
+    repo[${rep}_current_commit]="$current_commit"
+else
+    ferr "getting svn revision is not implemented"
+fi
 } #}}}
 
 ### fetch changes and reset repo to fetched head
 git_fetch_reset(){ #{{{
 debug 1 "$FUNCNAME() $*"
 ${conf[fetch]} || return
-section " git fetch && git reset --hard "
+subsection " git fetch && git reset --hard "
 #
 # fetches latest
 #
+local scm="$1"
+local rep="$2"
+local repo_path="$3"
 
 local remote="${conf[remote]}"
-local branch="${conf[branch]:-"$g_current_branch"}"
+local current_branch="${repo[${rep}_current_branch]}"
+local default_branch="${repo[${rep}_default_branch]}"
+
+#TODO - Handle remotes
+local remote="${repo[$rep_default_remote]}"
+
+#change to repo
+echo "changing into $repo_path"
+cd "$repo_path" || ferr "failed to cd in $repo_path"
 
 #select right branch
-echo "checking out $branch so that you local $branch matches the remote branch"
+echo "checking out $branch so that you local branch matches the remote branch"
 echo "i think this is a good default for people that are not messing with the code"
-if [[ -n "$branch" && "$branch" != "$g_current_branch" ]]; then
-    if ! git checkout ${conf[branch]}; then
+if [[ "$current_branch" != "$default_branch" ]]; then
+    if ! git checkout $default_branch; then
         ferr "unable to checkout selected branch - fix your repository"
     fi
 fi
 
 echo "git fetch $remote"
-git fetch $remote &> >( tee -a "${conf[git_e17_path]}/git.log" ) || nerr "git fetch failed"
+git fetch $remote &> >( tee -a "${conf[git_e17_path]}/git_$rep.log" ) || nerr "git fetch failed"
 
 echo "git clean -f -d"
 git clean -f -d &> /dev/null
 
-echo "git reset --hard  $remote/$branch"
-git reset --hard "$remote/$branch" &> >( tee -a "${conf[git_e17_path]}/git.log" ) \
+echo "git reset --hard  $remote/$default_branch"
+git reset --hard "$remote/$default_branch" &> >( tee -a "${conf[git_e17_path]}/git.log" ) \
     || nerr "git reset --hard failed"
 } #}}}
 
@@ -836,26 +923,60 @@ section " git pull --no-commit "
 #
 #   pull updates into branch
 #
+local scm="$1"
+local rep="$2"
+local repo_path="$3"
+
+#change to repo
+echo "changing into $repo_path"
+cd "$repo_path" || ferr "failed to cd in $repo_path"
+
 section " dear god we all hope there are no conflicts "
 git pull --no-commit $remote &> >( tee -a "${conf[git_e17_path]}/git.log" ) || nerr "git pull failed"
 } #}}}
 
 ### calculate updates
-calculate_updates(){ #{{{
+git_calculate_updates(){ #{{{
 debug 1 "$FUNCNAME() $*"
 [[ "${conf[action]}" == "update" ]] || return
-section " calculating changes "
+subsection " calculating changes "
 #
 #   Calculates changes to packages du to to fetch / pull operations
 #
+local scm="$1"
+local rep="$2"
+local repo_path="$3"
 
-g_current_commit="$(git log -1 --format="%H")"
+local current_commit="${repo[${rep}_current_commit]}"
+local trunk="${repo[${rep}_trunk]}"
+
+#change to repo
+echo "changing into $repo_path"
+cd "$repo_path" || ferr "failed to cd in $repo_path"
+
+
+if [[ ! ${repo[${rep}_trunk]} ]]; then
+    # repository provides single package
+    :
+else
+    :
+    # repository provides multiple packages
+fi
+
+exit 1
+# TODO TODO TODO
+....
+
+
+
+
+
 
 ## Speed this up
 write_name "building path map"
 local -A path_map
 for pkg in $packages; do
-    find_local_path "$pkg" "${conf[src_path]}" "/trunk"
+    find_local_path "$pkg" "$repo_path" "$trunk"
     local path="${conf[current_package_path]}"
     if [[ -n "$path" ]]; then
         path=${path##"$src_path"}
@@ -1733,8 +1854,8 @@ verbose(){ ${conf[verbose]} && echo -e "$@";}       #verbose message
 
 msg_ani(){ ${conf[animate]} && echo "$@"; }         #animation mode message
 
-# print scetion banner
-section(){
+# print section banner
+subsection(){
     local fill_symbol="-"
     local title="$@"
 
@@ -1744,11 +1865,17 @@ section(){
     fill=$(( fill / 2))
     #printf "$fill_symbol%.0s" {1..$(( fill + rem ))}  - fuck no
     for (( n=1 ; n <= fill ; n++ )); do echo -n "$fill_symbol" ; done
-    tput bold
+    #tput bold
     echo -n "$title"
-    tput sgr0
+    #tput sgr0
     for (( n=1 ; n <= (fill+rest) ; n++ )); do echo -n "$fill_symbol" ; done
     echo
+}
+
+section(){
+    tput bold
+    subsection "$@"
+    tput sgr0
 }
 
 ## print configuration
@@ -1805,7 +1932,7 @@ echo $args "$msg"
 
 echo_long(){
 # breaks a long line in single lines that fit width
-# if the first argument is -f the second is inseted
+# if the first argument is -f the second is inserted
 # in the beginning of the lines
 
 local fill=""
@@ -2159,7 +2286,7 @@ printf '%b\n' \
    "# this is the target dir of your installation" \
    "install_path=/opt/e17" \
    "# git repoistory directory" \
-   "src_path=${conf[git_e17_path]}/e.org.git" \
+   "src_path=${conf[git_e17_path]}/repositories" \
    "# dir in which the" \
    "build_path=${conf[git_e17_path]}/build" \
    "log_path=${conf[git_e17_path]}/log" \

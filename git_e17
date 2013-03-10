@@ -1031,7 +1031,9 @@ for pkg in $packages_to_inspect; do
 
         debug 3 "last successfully bulid commit: $succ_commit"
         #get files that differ form last successfully build commit
+        set -x
         new_files="$(git diff --name-only "$succ_commit" -- "${path_map[$pkg]}" 2>/dev/null)"
+        set +x
 
         if [[ $? -ne 0 ]]; then
             #build it because git diff failed.
@@ -1208,129 +1210,144 @@ build
 ### calls: build_repo
 build(){ #{{{
 debug 1 "$FUNCNAME() $*"
+local pkg=""
 
-for rep in ${repo[list]}; do
-    packages=${repo[${rep}_pkg_new]}
-    build_repo "$rep" ${repo[${rep}_single]} "${repo[${rep}_trunk]}" "${conf[src_path]}/$rep" "${conf[build_path]}/$rep"
+for pkg in $packages; do
+    if [[ $pkg == __* ]]; then
+        build_pkg "$pkg"
+    else
+        for rep in ${repo[list]}; do
+            #TODO fix me
+            if $update #find right var
+                local match="$(inter_lists "$pkg" "${repo[${rep}_pkg_new]}")"
+            else #if build
+                local match="$(inter_lists "$pkg" "${repo[${rep}_pkg]}")"
+            fi
+
+            if [[ -n "match" ]]; then
+                build_pkg "$pkg" "$rep" ${repo[${rep}_single]} "${repo[${rep}_trunk]}" "${conf[src_path]}/$rep" "${conf[build_path]}/$rep"
+                break
+            fi
+        done
+    fi
 done
+[[ $packages_failed ]] && echo -e "\n${bold}The following packages failed to build:\n${red}$packages_failed${norm}"
 } #}}}
 
 
 ### build_repo
 ### calls: find_local_path, compile
-build_repo(){ #{{{
+build_pkg(){ #{{{
 debug 1 "$FUNCNAME() $*"
 #
 # This functions should find the
 #
-local rep="$1"
-local single="$2"
-local trunk="$3"
-local repo_path="$4"
-local build_path="$5"
+local pkg="$1"
+local rep="$2"
+local single="$3"
+local trunk="$4"
+local repo_path="$5"
+local build_path="$6"
 
 local status_file="${conf[build_path]}/git_e17_status"
 
 [[ -e "$status_file" ]] || touch "$status_file"
 
-for pkg in $packages; do
-    #
-    # please use only
-    # msg     - for normal and verbose mode messages or
-    # msg_ani - for animation mode messages
-    # within this loop for output
-    #
-    #if [[ $pkg == __* ]]; then
-    #    echo -e "${bold}${packages_msg["$pkg"]}${norm}"
-    #    continue
-    #fi
+#
+# please use only
+# msg     - for normal and verbose mode messages or
+# msg_ani - for animation mode messages
+# within this loop for output
+#
+if [[ $pkg == __* ]]; then
+    echo -e "${bold}${packages_msg["$pkg"]}${norm}"
+    continue
+fi
 
-    #skip-packages
-    if [[ $pkg == --* ]]; then
-        continue
-    fi
+#skip-packages
+if [[ $pkg == --* ]]; then
+    continue
+fi
 
-    # TODO - ormaaj suggests to use temp files here - I was too lazy ...
-    status_content="$(cat "$status_file")"      #BAD STYLE
-    local name_found=false
-    local name stat try succ failed
-    while IFS=: read -r name stat try succ failed; do
-        if [[ "$pkg" == $name ]]; then
-            echo "$name:$stat:$g_current_commit:$succ:$failed"
-            name_found=true
-        else
-            if [[ -n "$name" ]]; then
-                echo "$name:$stat:$try:$succ:$failed"
-            fi
-        fi
-    done <<< "$status_content" > "$status_file" #BAD STYLE
-    if ! $name_found; then
-        echo "$pkg:x:$g_current_commit:na:na" >> "$status_file"
-    fi
-
-
-    msg "- trying to build $pkg ..."
-
-    #initialize vars
-    debug 2 "init vars"
-    g_current_failed=false
-    conf[current_package_path]=""
-
-    #find src
-    if $single; then
-        local cpath="$repo_path"
-        local bpath="$build_path"
+# TODO - ormaaj suggests to use temp files here - I was too lazy ...
+status_content="$(cat "$status_file")"      #BAD STYLE
+local name_found=false
+local name stat try succ failed
+while IFS=: read -r name stat try succ failed; do
+    if [[ "$pkg" == $name ]]; then
+        echo "$name:$stat:$g_current_commit:$succ:$failed"
+        name_found=true
     else
-        find_local_path "$pkg" "$repo_path" "$trunk"
-        local cpath="${repo_path}${trunk}/${conf[current_package_path]}"
-        local bpath="$build_path/$pkg"
+        if [[ -n "$name" ]]; then
+            echo "$name:$stat:$try:$succ:$failed"
+        fi
     fi
+done <<< "$status_content" > "$status_file" #BAD STYLE
+if ! $name_found; then
+    echo "$pkg:x:$g_current_commit:na:na" >> "$status_file"
+fi
 
-    if [[ -z "$cpath" ]]; then
-        nerr "source path of of package $pkg not found"
-        msg_ani "SKIP"
-        continue
+
+msg "- trying to build $pkg ..."
+
+#initialize vars
+debug 2 "init vars"
+g_current_failed=false
+conf[current_package_path]=""
+
+#find src
+if $single; then
+    local cpath="$repo_path"
+    local bpath="$build_path"
+else
+    find_local_path "$pkg" "$repo_path" "$trunk"
+    local cpath="${repo_path}/${trunk}/${conf[current_package_path]}"
+    local bpath="$build_path/$pkg"
+fi
+
+if [[ -z "$cpath" ]]; then
+    nerr "source path of of package $pkg not found"
+    msg_ani "SKIP"
+    continue
+else
+    #for animation
+    ${conf[animate]} && write_name "$pkg"
+
+    fix_pkg "$pkg" "$cpath" "$bpath"
+
+  ###compile it!
+    declare -g g_retry=true
+    while $g_retry; do
+        g_retry=false
+        compile "$pkg" "$cpath" "$bpath"
+
+        if ${conf[animate]} && $g_current_failed; then
+        ## BEGIN ANIMATION MODE OUTPUT
+        #  this is the place for extra information in
+        #  animation mode - it is shown when a building step failed
+            msg_ani "$fail"
+            pkg_err "$pkg"
+            $g_retry && write_name "$pkg"
+        fi
+    done
+  ####
+
+  #### management of failed / successful packages
+    if $g_current_failed; then
+        #
+        # ADD PKG TO FAILED
+        pkg_failed "$pkg"
     else
         #for animation
-        ${conf[animate]} && write_name "$pkg"
-
-        fix_pkg "$pkg" "$cpath" "$bpath"
-
-      ###compile it!
-        declare -g g_retry=true
-        while $g_retry; do
-            g_retry=false
-            compile "$pkg" "$cpath" "$bpath"
-
-            if ${conf[animate]} && $g_current_failed; then
-            ## BEGIN ANIMATION MODE OUTPUT
-            #  this is the place for extra information in
-            #  animation mode - it is shown when a building step failed
-                msg_ani "$fail"
-                pkg_err "$pkg"
-                $g_retry && write_name "$pkg"
-            fi
-        done
-      ####
-
-      #### management of failed / successful packages
-        if $g_current_failed; then
-            #
-            # ADD PKG TO FAILED
-            pkg_failed "$pkg"
-        else
-            #for animation
-            msg_ani "$ok"
-            if [[ $pkg == e ]] && ! ${conf[dev]}; then
-                echo -e "${bold}E17 is installed :) The rest is optional!!\nDo not bug me or people in #e if other packages fail!${norm}"
-            fi
-            # REMOVE PKG FROM FAILED
-            pkg_success "$pkg"
+        msg_ani "$ok"
+        if [[ $pkg == enlightenment ]] && ! ${conf[dev]}; then
+            echo -e "${bold}E17 is installed :) The rest is optional!!\nDo not bug me or people in #e if other packages fail!${norm}"
         fi
+        # REMOVE PKG FROM FAILED
+        pkg_success "$pkg"
     fi
-done
+fi
 
-[[ $packages_failed ]] && echo -e "\n${bold}The following packages failed to build:\n${red}$packages_failed${norm}"
 } #}}}
 
 ### find the source code of a package
@@ -1479,7 +1496,7 @@ g_current_failed=false
           ;;
       python)
         run_cmd "$pkg" "$src_path" "" "setup.py-build" "python setup.py build build_ext --include-dirs=$PYTHONINCLUDE $pkg_conf_args"
-        $g_current_failed || run_cmd "$pkg" "$src_path" "" "setip-py-install" "$pythoncmd setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
+        $g_current_failed || run_cmd "$pkg" "$src_path" "" "setup-py-install" "$pythoncmd setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
           ;;
       *)
           msg "  - no build system ... $fail"

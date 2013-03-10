@@ -151,14 +151,12 @@ check_cfg
 uninstall
 distcheck
 ## source
-get_src
+get_src #get source / update / get revision
 ## package management
 if ! [[ "$packages" ]]; then
     echo -e "\n${bold}No packages to build!${boldoff}\n"
     exit 0
 fi
-## finding changes
-#calculate_updates
 add_failed
 ignore_pkgs
 ##
@@ -650,11 +648,11 @@ else
 fi
 
 case "$action" in
-    fromscratch)
+    fromscratch) #TODO - rework
         (( $(id -u) == 0 )) && echo "idiot!!! Don't do this as root!!!" && exit 666
         rm -fr "${conf[install_path]}"
         rm -fr "${conf[build_path]}"
-        rm -fr "${conf[src_path]}/trunk"
+        rm -fr "${conf[src_path]}"
         conf[fetch]=true
         conf[action]="build"
         ;;
@@ -768,26 +766,29 @@ for rep in ${repo[list]}; do
     local scm="${repo[${rep}_scm]}"
     local repo_path="${conf[src_path]}/$rep" #path to local repo
     section " Working on $rep repository "
+
+
+    get_src_from_mirror     "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
+
     case "$scm" in
         git)
-            get_src_from_mirror     "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
             git_fetch_reset         "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
             git_pull                "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
-            get_revision            "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
             git_calculate_updates   "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
         ;;
         svn)
-            get_src_from_mirror     "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
-            get_revision "$rep"     "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
             #update
-            get_revision            "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
             #TODO #svn_calculate_updates   "$scm" "$rep" "$src_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
+            :
         ;;
         *)
             #TODO - better error
             ferr "no valid scm found"
         ;;
     esac
+
+    get_rep_revision            "$scm" "$rep" "$repo_path" "${repo[${rep}_url]}" "${repo[${rep}_trunk]}"
+
 done
 } #}}}
 
@@ -842,7 +843,7 @@ echo "repository $rep already exists"
 } #}}}
 
 ### get revision of local repository
-get_revision(){ #{{{
+get_rep_revision(){ #{{{
 debug 1 "$FUNCNAME() $*"
 subsection " get revision of local repository"
 #
@@ -892,7 +893,7 @@ local current_branch="${repo[${rep}_current_branch]}"
 local default_branch="${repo[${rep}_default_branch]}"
 
 #TODO - Handle remotes
-local remote="${repo[$rep_default_remote]}"
+local remote="${repo[${rep}_default_remote]}"
 
 #change to repo
 echo "changing into $repo_path"
@@ -914,7 +915,7 @@ echo "git clean -f -d"
 git clean -f -d &> /dev/null
 
 echo "git reset --hard  $remote/$default_branch"
-git reset --hard "$remote/$default_branch" &> >( tee -a "${conf[git_e17_path]}/git.log" ) \
+git reset --hard "$remote/$default_branch" &> >( tee -a "${conf[git_e17_path]}/git_$rep.log" ) \
     || nerr "git reset --hard failed"
 } #}}}
 
@@ -935,13 +936,13 @@ echo "changing into $repo_path"
 cd "$repo_path" || ferr "failed to cd in $repo_path"
 
 section " dear god we all hope there are no conflicts "
-git pull --no-commit $remote &> >( tee -a "${conf[git_e17_path]}/git.log" ) || nerr "git pull failed"
+git pull --no-commit $remote &> >( tee -a "${conf[git_e17_path]}/git_$rep.log" ) || nerr "git pull failed"
 } #}}}
 
 ### calculate updates
 git_calculate_updates(){ #{{{
 debug 1 "$FUNCNAME() $*"
-#[[ "${conf[action]}" == "update" ]] || return
+[[ "${conf[action]}" == "update" ]] || return
 subsection " calculating changes "
 #
 #   Calculates changes to packages du to to fetch / pull operations
@@ -1011,8 +1012,7 @@ for pkg in $packages_to_inspect; do
         write_name "$pkg"
         # calulate the new dir per package
         #find the last successful install/build
-        local succ_build="$(grep "^$pkg" "${conf[build_path]}/git_e17_status")"
-
+        local succ_build="$(grep "^$pkg" "$status_file")"
         if [[ -z "$succ_build" ]]; then
             #build it because we have no info
             packages_new+="$pkg "
@@ -1031,9 +1031,8 @@ for pkg in $packages_to_inspect; do
 
         debug 3 "last successfully bulid commit: $succ_commit"
         #get files that differ form last successfully build commit
-        set -x
+        echo "git diff --name-only $succ_commit -- ${path_map[$pkg]} 2>/dev/null"
         new_files="$(git diff --name-only "$succ_commit" -- "${path_map[$pkg]}" 2>/dev/null)"
-        set +x
 
         if [[ $? -ne 0 ]]; then
             #build it because git diff failed.
@@ -1091,14 +1090,17 @@ debug 1 "$FUNCNAME() $*"
 #
 # add to failed
 #
-msg -e " - Adding $1 to failed list of failed packages\n"
+local rep="$1"
+local pkg="$2"
+
+msg -e " - Adding $pkg to failed list of failed packages\n"
 
 local status_file="${conf[build_path]}/git_e17_status"
 status_content="$(cat "$status_file")"
 local name stat try succ fail
 while IFS=: read -r name stat try succ fail; do
     if [[ "$pkg" == "$name" ]]; then
-        echo "$name:failed:$try:$succ:$g_current_commit"
+        echo "$name:failed:$try:$succ:${repo[${rep}_current_commit]}"
     else
         echo "$name:$stat:$try:$succ:$fail"
     fi
@@ -1113,13 +1115,20 @@ debug 1 "$FUNCNAME() $*"
 #
 # remove from failed
 #
+local rep="$1"
+local pkg="$2"
 local status_file="${conf[build_path]}/git_e17_status"
+
+echo
+echo "rep: $rep pkg: $pkg"
+echo "commit ${repo[${rep}_current_commit]}"
+echo
 
 local name stat try succ fail
 status_content="$(cat "$status_file")"
 while IFS=: read -r name stat try succ fail; do
     if [[ "$pkg" == "$name" ]]; then
-        echo "$name:success:$try:$g_current_commit:$fail"
+        echo "$name:success:$try:${repo[${rep}_current_commit]}:$fail"
     else
         echo "$name:$stat:$try:$succ:$fail"
     fi
@@ -1207,25 +1216,25 @@ build
 
 
 ### build
-### calls: build_repo
+### calls: build_pkg
 build(){ #{{{
 debug 1 "$FUNCNAME() $*"
 local pkg=""
 
 for pkg in $packages; do
     if [[ $pkg == __* ]]; then
-        build_pkg "$pkg"
+        build_pkg "no rep" "$pkg"
     else
         for rep in ${repo[list]}; do
             #TODO fix me
-            if $update #find right var
+            if [[ ${conf[action]} == update ]]; then
                 local match="$(inter_lists "$pkg" "${repo[${rep}_pkg_new]}")"
             else #if build
                 local match="$(inter_lists "$pkg" "${repo[${rep}_pkg]}")"
             fi
 
-            if [[ -n "match" ]]; then
-                build_pkg "$pkg" "$rep" ${repo[${rep}_single]} "${repo[${rep}_trunk]}" "${conf[src_path]}/$rep" "${conf[build_path]}/$rep"
+            if [[ -n "$match" ]]; then
+                build_pkg "$rep" "$pkg" ${repo[${rep}_single]} "${repo[${rep}_trunk]}" "${conf[src_path]}/$rep" "${conf[build_path]}/$rep"
                 break
             fi
         done
@@ -1242,8 +1251,8 @@ debug 1 "$FUNCNAME() $*"
 #
 # This functions should find the
 #
-local pkg="$1"
-local rep="$2"
+local rep="$1"
+local pkg="$2"
 local single="$3"
 local trunk="$4"
 local repo_path="$5"
@@ -1275,7 +1284,7 @@ local name_found=false
 local name stat try succ failed
 while IFS=: read -r name stat try succ failed; do
     if [[ "$pkg" == $name ]]; then
-        echo "$name:$stat:$g_current_commit:$succ:$failed"
+        echo "$name:$stat:${repo[${rep}_current_commit]}:$succ:$failed"
         name_found=true
     else
         if [[ -n "$name" ]]; then
@@ -1284,7 +1293,7 @@ while IFS=: read -r name stat try succ failed; do
     fi
 done <<< "$status_content" > "$status_file" #BAD STYLE
 if ! $name_found; then
-    echo "$pkg:x:$g_current_commit:na:na" >> "$status_file"
+    echo "$pkg:x:${repo[${rep}_current_commit]}:na:na" >> "$status_file"
 fi
 
 
@@ -1326,7 +1335,7 @@ else
         #  this is the place for extra information in
         #  animation mode - it is shown when a building step failed
             msg_ani "$fail"
-            pkg_err "$pkg"
+            pkg_err "$rep" "$pkg"
             $g_retry && write_name "$pkg"
         fi
     done
@@ -1336,7 +1345,7 @@ else
     if $g_current_failed; then
         #
         # ADD PKG TO FAILED
-        pkg_failed "$pkg"
+        pkg_failed "$rep" "$pkg"
     else
         #for animation
         msg_ani "$ok"
@@ -1344,7 +1353,7 @@ else
             echo -e "${bold}E17 is installed :) The rest is optional!!\nDo not bug me or people in #e if other packages fail!${norm}"
         fi
         # REMOVE PKG FROM FAILED
-        pkg_success "$pkg"
+        pkg_success "$rep" "$pkg"
     fi
 fi
 
@@ -1448,17 +1457,17 @@ debug 1 "Type of build system $build_type"
 declare -g g_clean_phase=true
 case "$build_type" in
     autogen|bootstrap|cmake|configure)
-        ${conf[uninstall]} && run_cmd "$pkg" "$src_path" "$build_path" "make uninstall" "make uninstall"
+        ${conf[uninstall]} && run_cmd "$rep" "$pkg" "$src_path" "$build_path" "make uninstall" "make uninstall"
         g_current_failed=false
-        ${conf[clean]}     && run_cmd "$pkg" "$src_path" "$build_path" "make clean"     "make clean"
+        ${conf[clean]}     && run_cmd "$rep" "$pkg" "$src_path" "$build_path" "make clean"     "make clean"
         g_current_failed=false
-        ${conf[distclean]} && run_cmd "$pkg" "$src_path" "$build_path" "make distclean" "make distclean"
+        ${conf[distclean]} && run_cmd "$rep" "$pkg" "$src_path" "$build_path" "make distclean" "make distclean"
         g_current_failed=false
         ;;&
     make|perl)
-        ${conf[uninstall]} && run_cmd "$pkg" "$src_path" "" "make uninstall" "make uninstall"
+        ${conf[uninstall]} && run_cmd "$rep" "$pkg" "$src_path" "" "make uninstall" "make uninstall"
         g_current_failed=false
-        ${conf[clean]}     && run_cmd "$pkg" "$src_path" "" "make clean"     "make clean"
+        ${conf[clean]}     && run_cmd "$rep" "$pkg" "$src_path" "" "make clean"     "make clean"
         g_current_failed=false
         ;;
     *)
@@ -1472,31 +1481,31 @@ g_current_failed=false
 #UGLY HACK!!
   case "$build_type" in
       autogen)
-          run_cmd "$pkg" "$src_path" "" "autogen" "./autogen.sh"
+          run_cmd "$rep" "$pkg" "$src_path" "" "autogen" "./autogen.sh"
           ;;&
       cmake)
-          run_cmd "$pkg" "$src_path" "" "cmake" "cmake -DCMAKE_INSTALL_PREFIX=$install_path $pkg_conf_args $src_path"
+          run_cmd "$rep" "$pkg" "$src_path" "" "cmake" "cmake -DCMAKE_INSTALL_PREFIX=$install_path $pkg_conf_args $src_path"
           ;;&
       bootstrap)
-          run_cmd "$pkg" "$src_path" "" "boostrap" "./bootstrap"
+          run_cmd "$rep" "$pkg" "$src_path" "" "boostrap" "./bootstrap"
           ;;&
       perl)
-          run_cmd "$pkg" "$src_path" "$build_path" "perlmake" "perl $src_path/Makefile.PL prefix=$install_path"
+          run_cmd "$rep" "$pkg" "$src_path" "$build_path" "perlmake" "perl $src_path/Makefile.PL prefix=$install_path"
           ;;&
       autogen|bootstrap|configure) #configure
-          $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "configure" "$src_path/configure --prefix=$install_path $pkg_conf_args"
+          $g_current_failed || run_cmd "$rep" "$pkg" "$src_path" "$build_path" "configure" "$src_path/configure --prefix=$install_path $pkg_conf_args"
           ;;&
       autogen|cmake|bootstrap|perl|configure) # make && make install
-        $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "make" "make -j ${conf[threads]}"
-        $g_current_failed || run_cmd "$pkg" "$src_path" "$build_path" "install" "make install"
+        $g_current_failed || run_cmd "$rep" "$pkg" "$src_path" "$build_path" "make" "make -j ${conf[threads]}"
+        $g_current_failed || run_cmd "$rep" "$pkg" "$src_path" "$build_path" "install" "make install"
           ;;
       make) # make && make install
-        run_cmd "$pkg" "$src_path" "" "make" "$make_extra make -j ${conf[threads]}"
-        $g_current_failed || run_cmd "$pkg" "$src_path" "" "install" "make install"
+        run_cmd "$rep" "$pkg" "$src_path" "" "make" "$make_extra make -j ${conf[threads]}"
+        $g_current_failed || run_cmd "$rep" "$pkg" "$src_path" "" "install" "make install"
           ;;
       python)
-        run_cmd "$pkg" "$src_path" "" "setup.py-build" "python setup.py build build_ext --include-dirs=$PYTHONINCLUDE $pkg_conf_args"
-        $g_current_failed || run_cmd "$pkg" "$src_path" "" "setup-py-install" "$pythoncmd setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
+        run_cmd "$rep" "$pkg" "$src_path" "" "setup.py-build" "python setup.py build build_ext --include-dirs=$PYTHONINCLUDE $pkg_conf_args"
+        $g_current_failed || run_cmd "$rep" "$pkg" "$src_path" "" "setup-py-install" "$pythoncmd setup.py install --prefix=$install_path install_headers --install-dir=$PYTHONINCLUDE"
           ;;
       *)
           msg "  - no build system ... $fail"
@@ -1528,11 +1537,12 @@ debug 1 "$FUNCNAME() $*"
 #   maybe it is better to write a separate run_animated function
 #
 
-local pkg="$1"
-local src="$2"
-local build_path="$3"
-local title="$4"
-shift 4
+local rep="$1"
+local pkg="$2"
+local src="$3"
+local build_path="$4"
+local title="$5"
+shift 5
 
 if [[ -n "$build_path" ]]; then
     #clean it whatever it means
@@ -1558,7 +1568,7 @@ if [[ $title == "make"* ]]; then
         else
             msg  "$fail"
             msg  "no Makefile :("
-            pkg_err "$pkg"
+            pkg_err "$rep" "$pkg"
         fi
         # BEGIN NORMAL OUTPUT
         return
@@ -1572,7 +1582,7 @@ echo -e "\n\n" >>"$log_file"
 echo -e "git_e17 - $title\n" >>"$log_file"
 echo -e "command:  $* " >>"$log_file"
 echo -e "dir:      $(pwd)" >>"$log_file"
-echo -e "revision: $g_current_commit \n\n" >>"$log_file"
+echo -e "revision: ${reop[${rep}_current_commit]} \n\n" >>"$log_file"
 
 #run only if pre checks did not fail
 if ! $g_current_failed; then
@@ -1635,7 +1645,7 @@ if ! $g_current_failed; then
     echo
     tail -n 30 "$log_file"
     echo
-    $g_clean_phase || pkg_err $pkg
+    $g_clean_phase || pkg_err "$rep" "$pkg"
         :
 fi #end of pre checks of
 } #}}}
@@ -2041,14 +2051,15 @@ pkg_err(){
 debug 1 "$FUNCNAME() $*"
 [[ ${conf[on_error]} == "skip" ]] && return
 g_current_failed=true
-local pkg="$1"
+local rep="$1"
+local pkg="$2"
 shift
 err "The installation of package $pkg failed!"
 case ${conf[on_error]} in
     exit)
         #
         # ADD PGK TO FAILED
-        pkg_failed "$pkg"
+        pkg_failed "$rep" "$pkg"
         exit
         ;;
     ask)

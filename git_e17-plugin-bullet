@@ -33,8 +33,8 @@ plugin_build(){
 
     conf[bullet_conf_args]="-DBUILD_CPU_DEMOS=OFF -DBUILD_DEMOS=OFF -DBUILD_SHARED_LIBS=ON"
 
-    # build repo_path trunk build_path
-    build_repo bullet true "" "${conf[build_path]}/bullet" "${conf[build_path]}/bullet"
+    #build_pkg rep pkg single trunk src_path build_path
+    build_pkg  bullet bullet true "" "${conf[build_path]}/bullet" "${conf[build_path]}/bullet"
 
     #clean up
     packages=""

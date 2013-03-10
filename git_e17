@@ -1119,10 +1119,10 @@ local rep="$1"
 local pkg="$2"
 local status_file="${conf[build_path]}/git_e17_status"
 
-echo
-echo "rep: $rep pkg: $pkg"
-echo "commit ${repo[${rep}_current_commit]}"
-echo
+debug 3
+debug 3 "rep: $rep pkg: $pkg"
+debug 3 "commit ${repo[${rep}_current_commit]}"
+debug 3
 
 local name stat try succ fail
 status_content="$(cat "$status_file")"

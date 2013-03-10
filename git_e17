@@ -18,7 +18,7 @@
 ### global variable definitions {{{
 ## TODO ## Convert package list strings to arrays!!!
 basic_lib=( efl e_dbus azy elementary )
-basic_bin=( e evas_generic_loaders terminology exchange )
+basic_bin=( enlightenment evas_generic_loaders terminology exchange )
 themes=( dark 23oz b_and_w darkness detourious efenniht )
 
 modules_lib=( libeweather etrophy )
@@ -67,24 +67,28 @@ repo[efl_scm]="git"
 repo[efl_url]="git://git.enlightenment.org/core/efl.git"
 repo[efl_default_branch]="master"
 repo[efl_default_remote]="origin"
+repo[efl_single]=true
 repo[efl_pkg]="efl"
 
 repo[elementary_scm]="git"
 repo[elementary_url]="git://git.enlightenment.org/core/elementary.git"
 repo[elementary_default_branch]="master"
 repo[elementary_default_remote]="origin"
+repo[elementary_single]=true
 repo[elementary_pkg]="elementary"
 
 repo[enlightenment_scm]="git"
 repo[enlightenment_url]="git://git.enlightenment.org/core/enlightenment.git"
 repo[enlihgtenment_default_branch]="master"
 repo[enlihgtenment_default_remote]="origin"
-repo[enlightenment_pkg]="enlightenment e"
+repo[enlightenment_single]=true
+repo[enlightenment_pkg]="enlightenment"
 
 repo[efr_scm]="git"
 repo[efr_url]="git://git.enlightenment.fr/vcs/svn.git"
 repo[efr_default_branch]="master"
 repo[efr_default_remote]="origin"
+repo[efr_single]=false
 repo[efr_trunk]="/trunk"
 repo[efr_pkg]=" e_dbus azy evas_generic_loaders terminology exchange "
 repo[efr_pkg]+="${themes[@]} ${modules_lib[@]} ${modules_bin[@]} "
@@ -155,7 +159,6 @@ if ! [[ "$packages" ]]; then
 fi
 ## finding changes
 #calculate_updates
-echo "exit in 158" && exit 2
 add_failed
 ignore_pkgs
 ##
@@ -949,22 +952,32 @@ local repo_path="$3"
 
 local current_commit="${repo[${rep}_current_commit]}"
 local trunk="${repo[${rep}_trunk]}"
+local single=${repo[${rep}_single]}
+
+local status_file="${conf[build_path]}/git_e17_status"
+if [[ ! -f "$status_file" ]]; then
+    touch "$status_file"
+fi
 
 #change to repo
 echo "changing into $repo_path"
 cd "$repo_path" || ferr "failed to cd in $repo_path"
 
 local packages_to_inspect="$(inter_lists "$packages" "${repo[${rep}_pkg]}")"
-[[ -z "$packages_to_inspect" ]] && return
+if [[ -z "$packages_to_inspect" ]]; then
+    echo "repository $rep does not contain any of the requested packages"
+    return
+fi
+
+#packages found
 echo_long "calculating updates for: $packages_to_inspect"
 
-
-if [[ -z ${repo[${rep}_trunk]} ]]; then
+local pkg=""
+if $single; then
     # repository provides single package
-    echo "fooooooooooooooooooooooooooooooo"
+    path_map["${packages_to_inspect%% *}"]=""
 else
-    echo "baaaaaaaaaaaaaaaaaaaaaaaaaaaaaar"
-    ## Speed this up
+    ## START ## Bulid Path Map ## TODO ### Speed this up
     write_name "building path map"
     local -A path_map
     for pkg in $packages_to_inspect; do
@@ -977,37 +990,24 @@ else
         else
             debug 3 "unable to map $pkg to source location"
         fi
-done
-    :
-    # repository provides multiple packages
+    done
+    ## END  ## Bulid Path Map ## TODO ### Speed this up
 fi
-
-return
-# TODO TODO TODO
-
-
-
-
-
-
-
-#rotate does not work here
-#rotate $! "" "no_file"
-#wait
-echo -e "$ok \n"
 
 packages_new=""
 echo "checking packages for changes: "
 echo "package name .............. update status - (install status)"
 echo
 
-for pkg in $packages; do
+for pkg in $packages_to_inspect; do
     if [[ $pkg == __* ]]; then
         packages_new+="$pkg "
         continue
+    elif [[ $pkg == --* ]]; then
+        continue
     fi
     debug 3 "map $pkg: ${path_map[$pkg]}"
-    if [[ -n "${path_map[$pkg]}" ]]; then
+    if [[ -n "${path_map[$pkg]}" || $single ]]; then
         write_name "$pkg"
         # calulate the new dir per package
         #find the last successful install/build
@@ -1063,13 +1063,13 @@ for pkg in $packages; do
     fi
 done
 
-packages="$packages_new"
-if [[ "$packages" ]]; then
-    echo -e "The following packages are not up to date: \n"
-    echo_long "$packages"
+repo[${rep}_pkg_new]="$packages_new"
+if [[ -n "${repo[${rep}_pkg_new]}" ]]; then
+    echo -e "\nThe following packages are not up to date: \n"
+    echo_long "${repo[${rep}_pkg_new]}"
 else
-    echo -e "All packages are up to date! There is no need to update!!\n"
-    exit 0
+    echo -e "All packages for repository $rep are up to date! There is no need to update!!\n"
+    return
 fi
 } #}}}
 
@@ -1196,23 +1196,38 @@ $failed && ferr "can not access all required directories"
 #calls build in main script
 build_main(){ #{{{
 section " entering build phase "
-echo -e "The following packages will be build:\n"
-echo_long "$packages"
-echo
+#echo -e "The following packages will be build:\n"
+#echo_long "$packages"
+#echo
 
-build "${conf[src_path]}" "/trunk" "${conf[build_path]}"
+build
 } #}}}}
 
+
 ### build
-### calls: find_local_path, compile
+### calls: build_repo
 build(){ #{{{
+debug 1 "$FUNCNAME() $*"
+
+for rep in ${repo[list]}; do
+    packages=${repo[${rep}_pkg_new]}
+    build_repo "$rep" ${repo[${rep}_single]} "${repo[${rep}_trunk]}" "${conf[src_path]}/$rep" "${conf[build_path]}/$rep"
+done
+} #}}}
+
+
+### build_repo
+### calls: find_local_path, compile
+build_repo(){ #{{{
 debug 1 "$FUNCNAME() $*"
 #
 # This functions should find the
 #
-local repo_path="$1"
-local trunk="$2"
-local build_path="$3"
+local rep="$1"
+local single="$2"
+local trunk="$3"
+local repo_path="$4"
+local build_path="$5"
 
 local status_file="${conf[build_path]}/git_e17_status"
 
@@ -1225,10 +1240,10 @@ for pkg in $packages; do
     # msg_ani - for animation mode messages
     # within this loop for output
     #
-    if [[ $pkg == __* ]]; then
-        echo -e "${bold}${packages_msg["$pkg"]}${norm}"
-        continue
-    fi
+    #if [[ $pkg == __* ]]; then
+    #    echo -e "${bold}${packages_msg["$pkg"]}${norm}"
+    #    continue
+    #fi
 
     #skip-packages
     if [[ $pkg == --* ]]; then
@@ -1262,9 +1277,14 @@ for pkg in $packages; do
     conf[current_package_path]=""
 
     #find src
-    find_local_path "$pkg" "$repo_path" "$trunk"
-    local cpath="${repo_path}${trunk}/${conf[current_package_path]}"
-    local bpath="${conf[build_path]}/$pkg"
+    if $single; then
+        local cpath="$repo_path"
+        local bpath="$build_path"
+    else
+        find_local_path "$pkg" "$repo_path" "$trunk"
+        local cpath="${repo_path}${trunk}/${conf[current_package_path]}"
+        local bpath="$build_path/$pkg"
+    fi
 
     if [[ -z "$cpath" ]]; then
         nerr "source path of of package $pkg not found"
@@ -2203,10 +2223,10 @@ section " installing plugins "
 
 # TODO add to config
 
-pushd ${PWD} &>/dev/null
-cd "${conf[src_path]}" || ferr "unable to cahnge to build path"
-g_current_commit="$(git log -1 --format="%H")" || ferr "unable to get current commit"
-popd &>/dev/null
+#pushd ${PWD} &>/dev/null
+#cd "${conf[src_path]}" || ferr "unable to cahnge to build path"
+#g_current_commit="$(git log -1 --format="%H")" || ferr "unable to get current commit"
+#popd &>/dev/null
 
 local plugin_path="${BASH_SOURCE%/*}"
 

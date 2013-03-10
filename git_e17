@@ -85,7 +85,7 @@ repo[efr_scm]="git"
 repo[efr_url]="git://git.enlightenment.fr/vcs/svn.git"
 repo[efr_default_branch]="master"
 repo[efr_default_remote]="origin"
-repo[efr_trunk]="trunk/"
+repo[efr_trunk]="/trunk"
 repo[efr_pkg]=" e_dbus azy evas_generic_loaders terminology exchange "
 repo[efr_pkg]+="${themes[@]} ${modules_lib[@]} ${modules_bin[@]} "
 repo[efr_pkg]+="${modules_extra[@]} ${extra_lib[@]} ${extra_bin[@]}"
@@ -938,7 +938,7 @@ git pull --no-commit $remote &> >( tee -a "${conf[git_e17_path]}/git.log" ) || n
 ### calculate updates
 git_calculate_updates(){ #{{{
 debug 1 "$FUNCNAME() $*"
-[[ "${conf[action]}" == "update" ]] || return
+#[[ "${conf[action]}" == "update" ]] || return
 subsection " calculating changes "
 #
 #   Calculates changes to packages du to to fetch / pull operations
@@ -954,38 +954,42 @@ local trunk="${repo[${rep}_trunk]}"
 echo "changing into $repo_path"
 cd "$repo_path" || ferr "failed to cd in $repo_path"
 
+local packages_to_inspect="$(inter_lists "$packages" "${repo[${rep}_pkg]}")"
+[[ -z "$packages_to_inspect" ]] && return
+echo_long "calculating updates for: $packages_to_inspect"
 
-if [[ ! ${repo[${rep}_trunk]} ]]; then
+
+if [[ -z ${repo[${rep}_trunk]} ]]; then
     # repository provides single package
-    :
+    echo "fooooooooooooooooooooooooooooooo"
 else
+    echo "baaaaaaaaaaaaaaaaaaaaaaaaaaaaaar"
+    ## Speed this up
+    write_name "building path map"
+    local -A path_map
+    for pkg in $packages_to_inspect; do
+        find_local_path "$pkg" "$repo_path" "$trunk"
+        local path="${conf[current_package_path]}"
+        if [[ -n "$path" ]]; then
+            path=${path##"$repo_path"}
+            path_map["$pkg"]="$trunk/$path/"
+            debug 3 "map $pkg: ${path_map[$pkg]}"
+        else
+            debug 3 "unable to map $pkg to source location"
+        fi
+done
     :
     # repository provides multiple packages
 fi
 
-exit 1
+return
 # TODO TODO TODO
-....
 
 
 
 
 
 
-## Speed this up
-write_name "building path map"
-local -A path_map
-for pkg in $packages; do
-    find_local_path "$pkg" "$repo_path" "$trunk"
-    local path="${conf[current_package_path]}"
-    if [[ -n "$path" ]]; then
-        path=${path##"$src_path"}
-        path_map["$pkg"]="trunk/$path/"
-        debug 3 "map $pkg: ${path_map[$pkg]}"
-    else
-        debug 3 "unable to map $pkg to source location"
-    fi
-done
 
 #rotate does not work here
 #rotate $! "" "no_file"
@@ -1310,8 +1314,8 @@ done
 } #}}}
 
 ### find the source code of a package
-find_local_path (){ #{{{
-debug 1 "$FUNCNAME() $*"
+find_local_path(){ #{{{
+debug 1 "$FUNCNAME() $@"
 #
 # Function that should find the source path to the current package
 #
@@ -1357,6 +1361,7 @@ debug 5 "path selected for $pkg: $src_path/${conf[current_package_path]}"
 if [[ -z "${conf[current_package_path]}" ]] ; then
     debug 1 "Source path for $pkg was not found!"
 fi
+#echo "$path"
 } #}}}
 
 ### sets up configure parameters
@@ -1823,11 +1828,12 @@ inter_lists(){
 local result=""
 for list1_item in $1; do
     for list2_item in $2; do
-        if [[ "$list1_item" == "$list2_item" ]]; then
+        if [[ "$list1_item" = "$list2_item" ]]; then
             result+="$list1_item "
         fi
     done
 done
+echo "$result"
 }
 
 # subtract 2nd list from first
@@ -1843,7 +1849,7 @@ done
 }
 sort_as_full(){
     #bring items in $@ in the same order as in $packages_full
-    inter_lists "$packages_full" "$@"
+    inter_lists "${packages_full[@]}" "$@"
 }
 ## OUTPUT
 write_bold(){ tput bold; echo "$@"; tput sgr0; }
